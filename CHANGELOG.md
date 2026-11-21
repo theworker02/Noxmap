@@ -6,6 +6,7 @@
 - Document the 256-target ceiling and keep continuous monitoring scoped to one target per process.
 - Add exact-host and IPv4-CIDR exclusions through `--exclude` and `--excludefile`.
 - Add Noxmap's line-oriented `-oG` report and document the supported compatibility command subset.
+- Add Noxmap-maintained fast (`-F`) and bounded `--top-ports` TCP profiles, with explicit `-sV` service identification in compatibility mode.
 
 ## 0.1.0 — 2026-11-20
 
