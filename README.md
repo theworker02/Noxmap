@@ -10,6 +10,15 @@ The first release establishes a portable, consent-first scanning core: bounded T
 
 This is an early foundation, not a drop-in replacement for Nmap. It intentionally does **not** implement raw-packet scanning, evasion, spoofing, stealth modes, exploit execution, or unauthenticated remote administration.
 
+## Project documentation
+
+- [Architecture](ARCHITECTURE.md)
+- [Upstream structure and compatibility inventory](UPSTREAM_COMPATIBILITY.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Upstream Nmap relationship](UPSTREAM-NMAP-NOTICE.md)
+
 ## Quick start
 
 ```powershell
