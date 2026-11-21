@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Wire bounded IPv4 CIDR and Nmap-style `-iL` inventory input into `scan` and compatibility TCP-connect scans.
+- Document the 256-target ceiling and keep continuous monitoring scoped to one target per process.
+
 ## 0.1.0 — 2026-11-20
 
 - Established the clean-room Rust scanning core.
