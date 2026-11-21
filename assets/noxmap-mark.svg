@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title>Noxmap mark</title>
+  <path fill="#101827" d="M128 9 229 67v122l-101 58L27 189V67z"/>
+  <path fill="none" stroke="#2563eb" stroke-width="14" d="M128 20 219 73v110l-91 53-91-53V73z"/>
+  <circle cx="128" cy="128" r="57" fill="none" stroke="#f8fafc" stroke-width="12"/>
+  <path fill="#8b5cf6" d="m128 50 18 59-18-10-18 10zM128 206l-18-59 18 10 18-10z"/>
+  <path fill="none" stroke="#2563eb" stroke-width="14" stroke-linejoin="round" d="m72 128 34 0 16-30 18 62 13-25h31"/>
+</svg>
+

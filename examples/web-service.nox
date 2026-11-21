@@ -1,0 +1,6 @@
+# Data-only Noxmap script: verify a service identified from a collected snapshot.
+id=web-service
+version=1
+capabilities=MakeTcpConnection,ReadServiceBanner
+action=service:http
+
