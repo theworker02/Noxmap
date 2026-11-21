@@ -3,7 +3,7 @@ use noxmap::discovery::{HostStatus, discover};
 use noxmap::fingerprint::infer_from_services;
 use noxmap::monitoring::diff;
 use noxmap::report;
-use noxmap::scanner::{PortState, parse_ports};
+use noxmap::scanner::{PortState, parse_ports, top_tcp_ports};
 use noxmap::scripting::{parse_script, run_script};
 use noxmap::storage::SnapshotStore;
 use noxmap::targets::{apply_exclusions, exclusions_from_file, expand_cidr, targets_from_file};
@@ -180,7 +180,8 @@ fn command_targets(tokens: &[String]) -> Result<(Vec<String>, Vec<String>), Stri
                         .ok_or("--excludefile requires a file path")?,
                 ))?);
             }
-            "--ports" | "--timeout-ms" | "--concurrency" | "--interval-secs" | "--state-dir" => {
+            "--ports" | "--top-ports" | "--timeout-ms" | "--concurrency" | "--interval-secs"
+            | "--state-dir" => {
                 scan_args.push(tokens[index].clone());
                 index += 1;
                 scan_args.push(
@@ -232,10 +233,22 @@ fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
 
 fn parse_compat_config(tokens: &[String]) -> Result<CompatConfig, String> {
     let mut config = CompatConfig::default();
+    config.options.identify_services = false;
     let mut index = 0;
     while index < tokens.len() {
         match tokens[index].as_str() {
-            "-sT" | "--connect" | "-sV" | "--service-version" => {}
+            "-sT" | "--connect" => {}
+            "-sV" | "--service-version" => config.options.identify_services = true,
+            "-F" | "--fast" => config.options.ports = top_tcp_ports(100)?,
+            "--top-ports" => {
+                index += 1;
+                let count = tokens
+                    .get(index)
+                    .ok_or("--top-ports requires a count")?
+                    .parse()
+                    .map_err(|_| "--top-ports must be a number")?;
+                config.options.ports = top_tcp_ports(count)?;
+            }
             "-p" | "--ports" => {
                 index += 1;
                 config.options.ports =
@@ -358,6 +371,14 @@ fn scan_arguments(
             "--ports" => {
                 options.ports = parse_ports(&args.next().ok_or("--ports requires a value")?)?;
             }
+            "--top-ports" => {
+                let count = args
+                    .next()
+                    .ok_or("--top-ports requires a count")?
+                    .parse()
+                    .map_err(|_| "--top-ports must be a number")?;
+                options.ports = top_tcp_ports(count)?;
+            }
             "--timeout-ms" => {
                 options.timeout = Duration::from_millis(
                     args.next()
@@ -475,7 +496,7 @@ fn to_json(snapshot: &noxmap::ScanSnapshot) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::command_targets;
+    use super::{command_targets, parse_compat_config};
 
     #[test]
     fn accepts_bounded_cidr_as_a_scan_target() {
@@ -505,6 +526,19 @@ mod tests {
             result.expect("inventory should parse").0,
             vec!["192.0.2.10", "192.0.2.12"]
         );
+    }
+
+    #[test]
+    fn compatibility_version_detection_is_explicit_and_fast_profile_is_bounded() {
+        let plain = parse_compat_config(&["-sT".into(), "127.0.0.1".into()])
+            .expect("TCP connect command should parse");
+        assert!(!plain.options.identify_services);
+
+        let versioned =
+            parse_compat_config(&["-sT".into(), "-sV".into(), "-F".into(), "127.0.0.1".into()])
+                .expect("versioned fast command should parse");
+        assert!(versioned.options.identify_services);
+        assert_eq!(versioned.options.ports.len(), 100);
     }
 }
 
