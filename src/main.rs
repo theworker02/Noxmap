@@ -6,7 +6,7 @@ use noxmap::report;
 use noxmap::scanner::{PortState, parse_ports};
 use noxmap::scripting::{parse_script, run_script};
 use noxmap::storage::SnapshotStore;
-use noxmap::targets::expand_cidr;
+use noxmap::targets::{expand_cidr, targets_from_file};
 use noxmap::topology::{SystemTopologyProvider, TopologyProvider};
 use noxmap::{ScanOptions, ScanPolicy, Scanner};
 use std::env;
@@ -27,13 +27,35 @@ fn run() -> Result<(), String> {
         print_help();
         return Ok(());
     }
+    execute_command(command, args.collect())
+}
+
+fn execute_command(command: String, command_args: Vec<String>) -> Result<(), String> {
+    let mut args = command_args.into_iter();
     match command.as_str() {
         "scan" | "watch" => {
-            let target = args.next().ok_or("a target is required")?;
-            let (options, policy, state_dir, json, interval) = scan_arguments(args)?;
-            scan_or_watch(
-                &command, &target, &options, policy, state_dir, json, interval,
-            )
+            let command_args = args.collect::<Vec<_>>();
+            let (targets, scan_args) = command_targets(&command_args)?;
+            if command == "watch" && targets.len() != 1 {
+                return Err(
+                    "watch accepts exactly one resolved target; run a separate watch per host"
+                        .into(),
+                );
+            }
+            let (options, policy, state_dir, json, interval) =
+                scan_arguments(scan_args.into_iter())?;
+            for target in targets {
+                scan_or_watch(
+                    &command,
+                    &target,
+                    &options,
+                    policy,
+                    state_dir.clone(),
+                    json,
+                    interval,
+                )?;
+            }
+            Ok(())
         }
         "fingerprint" => {
             let target = args.next().ok_or("a target is required")?;
@@ -107,10 +129,62 @@ fn run() -> Result<(), String> {
     }
 }
 
+/// Splits scan options from one target, a bounded IPv4 CIDR, or a Nmap-style
+/// newline-delimited inventory supplied by `-iL`.
+fn command_targets(tokens: &[String]) -> Result<(Vec<String>, Vec<String>), String> {
+    let mut positional = Vec::new();
+    let mut list_file = None;
+    let mut scan_args = Vec::new();
+    let mut index = 0;
+    while index < tokens.len() {
+        match tokens[index].as_str() {
+            "-iL" | "--input-list" => {
+                index += 1;
+                let path = tokens.get(index).ok_or("-iL requires a file path")?;
+                if list_file.replace(path.clone()).is_some() {
+                    return Err("only one -iL inventory is supported per invocation".into());
+                }
+            }
+            "--ports" | "--timeout-ms" | "--concurrency" | "--interval-secs" | "--state-dir" => {
+                scan_args.push(tokens[index].clone());
+                index += 1;
+                scan_args.push(
+                    tokens
+                        .get(index)
+                        .ok_or("scan option requires a value")?
+                        .clone(),
+                );
+            }
+            value if value.starts_with('-') => scan_args.push(value.to_string()),
+            value => positional.push(value.to_string()),
+        }
+        index += 1;
+    }
+    if list_file.is_some() && !positional.is_empty() {
+        return Err("provide either a target or -iL inventory, not both".into());
+    }
+    if positional.len() > 1 {
+        return Err(
+            "exactly one target is supported; put multiple targets in an -iL inventory".into(),
+        );
+    }
+    let targets = if let Some(path) = list_file {
+        targets_from_file(std::path::Path::new(&path), 256)?
+    } else {
+        let target = positional
+            .into_iter()
+            .next()
+            .ok_or("a target or -iL inventory is required")?;
+        expand_cidr(&target, 256)?
+    };
+    Ok((targets, scan_args))
+}
+
 fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
     let mut tokens = vec![first];
     tokens.extend(rest);
     let mut target = None;
+    let mut inventory = None;
     let mut options = ScanOptions::default();
     let mut policy = ScanPolicy::default();
     let mut output = None;
@@ -136,6 +210,10 @@ fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
                     true,
                 ));
             }
+            "-iL" => {
+                index += 1;
+                inventory = Some(tokens.get(index).ok_or("-iL requires a file path")?.clone());
+            }
             "--allow-public" => policy.allow_public = true,
             "-sS" | "-sU" | "-O" | "-A" | "-Pn" => {
                 return Err(format!(
@@ -156,13 +234,27 @@ fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
         }
         index += 1;
     }
-    let target = target.ok_or("a target is required")?;
-    let snapshot = Scanner::new(policy).scan(&target, &options)?;
-    let rendered = if output.as_ref().is_some_and(|(_, xml)| *xml) {
-        report::xml(&snapshot)
+    if inventory.is_some() && target.is_some() {
+        return Err("provide either a target or -iL inventory, not both".into());
+    }
+    let targets = if let Some(path) = inventory {
+        targets_from_file(std::path::Path::new(&path), 256)?
     } else {
-        report::normal(&snapshot)
+        expand_cidr(&target.ok_or("a target is required")?, 256)?
     };
+    if output.as_ref().is_some_and(|(_, xml)| *xml) && targets.len() != 1 {
+        return Err("-oX currently accepts exactly one resolved target".into());
+    }
+    let mut rendered = String::new();
+    for target in targets {
+        let snapshot = Scanner::new(policy).scan(&target, &options)?;
+        let report = if output.as_ref().is_some_and(|(_, xml)| *xml) {
+            report::xml(&snapshot)
+        } else {
+            report::normal(&snapshot)
+        };
+        rendered.push_str(&report);
+    }
     if let Some((path, _)) = output {
         std::fs::write(&path, rendered)
             .map_err(|error| format!("could not write report: {error}"))?;
@@ -251,7 +343,7 @@ fn scan_or_watch(
 
 fn print_help() {
     println!(
-        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public"
+        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets."
     );
 }
 fn print_human(snapshot: &noxmap::ScanSnapshot) {
@@ -299,5 +391,40 @@ fn to_json(snapshot: &noxmap::ScanSnapshot) -> String {
         snapshot.scanned_at_unix_ms,
         ports
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::command_targets;
+
+    #[test]
+    fn accepts_bounded_cidr_as_a_scan_target() {
+        let arguments = vec!["192.0.2.0/30".into(), "--ports".into(), "80,443".into()];
+        let (targets, options) = command_targets(&arguments).expect("CIDR target should parse");
+        assert_eq!(targets.len(), 4);
+        assert_eq!(options, vec!["--ports", "80,443"]);
+    }
+
+    #[test]
+    fn reads_nmap_style_input_list_without_mixing_targets() {
+        let path = std::env::temp_dir().join(format!(
+            "noxmap-input-{}-{}.txt",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock should be after Unix epoch")
+                .as_nanos()
+        ));
+        std::fs::write(&path, "# authorized inventory\n192.0.2.10\n192.0.2.12\n")
+            .expect("test inventory should be writable");
+        let input = path.to_string_lossy().into_owned();
+        let arguments = vec!["-iL".into(), input];
+        let result = command_targets(&arguments);
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(
+            result.expect("inventory should parse").0,
+            vec!["192.0.2.10", "192.0.2.12"]
+        );
+    }
 }
 
