@@ -35,10 +35,14 @@ cargo run -- scan example.com --ports 80,443 --allow-public
 
 ```text
 noxmap scan <target> [--ports <spec>] [--timeout-ms <n>] [--concurrency <n>] [--json] [--allow-public]
+noxmap scan <ipv4-cidr> [scan options]
+noxmap scan -iL <authorized-inventory.txt> [scan options]
 noxmap watch <target> [scan options] [--interval-secs <n>]
 ```
 
 Port specifications accept comma-separated ports and inclusive ranges, for example `22,80,443,8000-8100`. The default is a small inventory-oriented set of common TCP services.
+
+Target inputs accept one hostname/IP address, a bounded IPv4 CIDR, or a newline-delimited `-iL` inventory. Empty lines and lines beginning with `#` are ignored. CIDR and inventory expansion are capped at 256 targets so an accidental broad range cannot trigger an uncontrolled scan. `watch` deliberately remains one-target-per-process so each saved change history is unambiguous.
 
 ## Architecture
 
