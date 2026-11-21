@@ -6,12 +6,29 @@ use noxmap::report;
 use noxmap::scanner::{PortState, parse_ports};
 use noxmap::scripting::{parse_script, run_script};
 use noxmap::storage::SnapshotStore;
-use noxmap::targets::{expand_cidr, targets_from_file};
+use noxmap::targets::{apply_exclusions, exclusions_from_file, expand_cidr, targets_from_file};
 use noxmap::topology::{SystemTopologyProvider, TopologyProvider};
 use noxmap::{ScanOptions, ScanPolicy, Scanner};
 use std::env;
 use std::thread;
 use std::time::Duration;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ReportFormat {
+    Normal,
+    Xml,
+    Grepable,
+}
+
+#[derive(Default)]
+struct CompatConfig {
+    target: Option<String>,
+    inventory: Option<String>,
+    options: ScanOptions,
+    policy: ScanPolicy,
+    output: Option<(String, ReportFormat)>,
+    exclusions: Vec<String>,
+}
 
 fn main() {
     if let Err(error) = run() {
@@ -134,6 +151,7 @@ fn execute_command(command: String, command_args: Vec<String>) -> Result<(), Str
 fn command_targets(tokens: &[String]) -> Result<(Vec<String>, Vec<String>), String> {
     let mut positional = Vec::new();
     let mut list_file = None;
+    let mut exclusions = Vec::new();
     let mut scan_args = Vec::new();
     let mut index = 0;
     while index < tokens.len() {
@@ -144,6 +162,23 @@ fn command_targets(tokens: &[String]) -> Result<(Vec<String>, Vec<String>), Stri
                 if list_file.replace(path.clone()).is_some() {
                     return Err("only one -iL inventory is supported per invocation".into());
                 }
+            }
+            "--exclude" => {
+                index += 1;
+                exclusions.push(
+                    tokens
+                        .get(index)
+                        .ok_or("--exclude requires an expression")?
+                        .clone(),
+                );
+            }
+            "--excludefile" => {
+                index += 1;
+                exclusions.extend(exclusions_from_file(std::path::Path::new(
+                    tokens
+                        .get(index)
+                        .ok_or("--excludefile requires a file path")?,
+                ))?);
             }
             "--ports" | "--timeout-ms" | "--concurrency" | "--interval-secs" | "--state-dir" => {
                 scan_args.push(tokens[index].clone());
@@ -177,44 +212,81 @@ fn command_targets(tokens: &[String]) -> Result<(Vec<String>, Vec<String>), Stri
             .ok_or("a target or -iL inventory is required")?;
         expand_cidr(&target, 256)?
     };
-    Ok((targets, scan_args))
+    Ok((apply_exclusions(targets, &exclusions)?, scan_args))
 }
 
 fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
     let mut tokens = vec![first];
     tokens.extend(rest);
-    let mut target = None;
-    let mut inventory = None;
-    let mut options = ScanOptions::default();
-    let mut policy = ScanPolicy::default();
-    let mut output = None;
+    let config = parse_compat_config(&tokens)?;
+    let targets = compat_targets(&config)?;
+    let rendered = render_compat_reports(&config, &targets)?;
+    if let Some((path, _)) = config.output {
+        std::fs::write(&path, rendered)
+            .map_err(|error| format!("could not write report: {error}"))?;
+    } else {
+        print!("{rendered}");
+    }
+    Ok(())
+}
+
+fn parse_compat_config(tokens: &[String]) -> Result<CompatConfig, String> {
+    let mut config = CompatConfig::default();
     let mut index = 0;
     while index < tokens.len() {
         match tokens[index].as_str() {
             "-sT" | "--connect" | "-sV" | "--service-version" => {}
             "-p" | "--ports" => {
                 index += 1;
-                options.ports = parse_ports(tokens.get(index).ok_or("-p requires a value")?)?;
+                config.options.ports =
+                    parse_ports(tokens.get(index).ok_or("-p requires a value")?)?;
             }
             "-oN" => {
                 index += 1;
-                output = Some((
+                config.output = Some((
                     tokens.get(index).ok_or("-oN requires a file path")?.clone(),
-                    false,
+                    ReportFormat::Normal,
                 ));
             }
             "-oX" => {
                 index += 1;
-                output = Some((
+                config.output = Some((
                     tokens.get(index).ok_or("-oX requires a file path")?.clone(),
-                    true,
+                    ReportFormat::Xml,
+                ));
+            }
+            "-oG" => {
+                index += 1;
+                config.output = Some((
+                    tokens.get(index).ok_or("-oG requires a file path")?.clone(),
+                    ReportFormat::Grepable,
                 ));
             }
             "-iL" => {
                 index += 1;
-                inventory = Some(tokens.get(index).ok_or("-iL requires a file path")?.clone());
+                config.inventory =
+                    Some(tokens.get(index).ok_or("-iL requires a file path")?.clone());
             }
-            "--allow-public" => policy.allow_public = true,
+            "--exclude" => {
+                index += 1;
+                config.exclusions.push(
+                    tokens
+                        .get(index)
+                        .ok_or("--exclude requires an expression")?
+                        .clone(),
+                );
+            }
+            "--excludefile" => {
+                index += 1;
+                config
+                    .exclusions
+                    .extend(exclusions_from_file(std::path::Path::new(
+                        tokens
+                            .get(index)
+                            .ok_or("--excludefile requires a file path")?,
+                    ))?);
+            }
+            "--allow-public" => config.policy.allow_public = true,
             "-sS" | "-sU" | "-O" | "-A" | "-Pn" => {
                 return Err(format!(
                     "{} is not implemented by Noxmap yet; it is never silently substituted with another scan type",
@@ -225,7 +297,7 @@ fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
                 return Err(format!("unsupported compatibility option: {value}"));
             }
             value => {
-                if target.replace(value.to_string()).is_some() {
+                if config.target.replace(value.to_string()).is_some() {
                     return Err(
                         "exactly one target is supported per compatibility invocation".into(),
                     );
@@ -234,34 +306,42 @@ fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
         }
         index += 1;
     }
-    if inventory.is_some() && target.is_some() {
+    Ok(config)
+}
+
+fn compat_targets(config: &CompatConfig) -> Result<Vec<String>, String> {
+    if config.inventory.is_some() && config.target.is_some() {
         return Err("provide either a target or -iL inventory, not both".into());
     }
-    let targets = if let Some(path) = inventory {
+    let targets = if let Some(path) = &config.inventory {
         targets_from_file(std::path::Path::new(&path), 256)?
     } else {
-        expand_cidr(&target.ok_or("a target is required")?, 256)?
+        expand_cidr(config.target.as_deref().ok_or("a target is required")?, 256)?
     };
-    if output.as_ref().is_some_and(|(_, xml)| *xml) && targets.len() != 1 {
+    let targets = apply_exclusions(targets, &config.exclusions)?;
+    if config
+        .output
+        .as_ref()
+        .is_some_and(|(_, format)| *format == ReportFormat::Xml)
+        && targets.len() != 1
+    {
         return Err("-oX currently accepts exactly one resolved target".into());
     }
+    Ok(targets)
+}
+
+fn render_compat_reports(config: &CompatConfig, targets: &[String]) -> Result<String, String> {
     let mut rendered = String::new();
     for target in targets {
-        let snapshot = Scanner::new(policy).scan(&target, &options)?;
-        let report = if output.as_ref().is_some_and(|(_, xml)| *xml) {
-            report::xml(&snapshot)
-        } else {
-            report::normal(&snapshot)
+        let snapshot = Scanner::new(config.policy).scan(target, &config.options)?;
+        let report = match config.output.as_ref().map(|(_, format)| format) {
+            Some(ReportFormat::Xml) => report::xml(&snapshot),
+            Some(ReportFormat::Grepable) => report::grepable(&snapshot),
+            _ => report::normal(&snapshot),
         };
         rendered.push_str(&report);
     }
-    if let Some((path, _)) = output {
-        std::fs::write(&path, rendered)
-            .map_err(|error| format!("could not write report: {error}"))?;
-    } else {
-        print!("{rendered}");
-    }
-    Ok(())
+    Ok(rendered)
 }
 
 fn scan_arguments(
@@ -343,7 +423,7 @@ fn scan_or_watch(
 
 fn print_help() {
     println!(
-        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets."
+        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG <file>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
     );
 }
 fn print_human(snapshot: &noxmap::ScanSnapshot) {
