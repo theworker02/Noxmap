@@ -44,6 +44,7 @@ Noxmap currently builds with stable Rust 1.85 or later and has no third-party ru
 
 ```text
 noxmap scan <target> [--ports <spec>] [--timeout-ms <n>] [--concurrency <n>] [--json] [--allow-public]
+noxmap scan <target> --top-ports <1-100> [scan options]
 noxmap scan <ipv4-cidr> [scan options]
 noxmap scan -iL <authorized-inventory.txt> [scan options]
 noxmap watch <target> [scan options] [--interval-secs <n>]
@@ -66,19 +67,21 @@ For familiar operator workflows, Noxmap accepts a deliberately small compatibili
 
 ```powershell
 noxmap -sT 127.0.0.1 -p 22,80,443
+noxmap -sT -F 127.0.0.1
+noxmap -sT --top-ports 20 -sV 127.0.0.1
 noxmap -sT -iL .\inventory.txt --exclude 192.168.50.0/24 -oN .\scan.txt
 noxmap -sT 127.0.0.1 -p 80,443 -oX .\scan.xml
 noxmap -sT 127.0.0.1 -p 80,443 -oG .\scan.grep
 ```
 
-Supported compatibility options are `-sT`, `-sV`, `-p`, `-iL`, `--exclude`, `--excludefile`, `-oN`, `-oX`, and `-oG`. Unsupported scan families fail explicitly rather than being silently replaced with a different operation.
+Supported compatibility options are `-sT`, `-sV`, `-p`, `-F`, `--top-ports`, `-iL`, `--exclude`, `--excludefile`, `-oN`, `-oX`, and `-oG`. `-F` selects Noxmap's maintained 100-port TCP profile, and `--top-ports N` selects its first `N` entries. In compatibility mode, service identification runs only when `-sV` is supplied. Unsupported scan families fail explicitly rather than being silently replaced with a different operation.
 
 ## What Noxmap does today
 
 | Capability | Behavior |
 | --- | --- |
 | TCP port inventory | Performs bounded, concurrent TCP connection attempts and reports open, closed, filtered, unreachable, or unresolved outcomes where the operating system exposes enough information. |
-| Service identification | Uses restrained HTTP, Redis, memcached, and port-hint checks on confirmed open ports. It does not run arbitrary payloads or reuse another project's probe database. |
+| Service identification | Uses restrained HTTP, Redis, memcached, and port-hint checks on confirmed open ports. Native scans identify by default; the compatibility command requires `-sV`. It does not run arbitrary payloads or reuse another project's probe database. |
 | Target handling | Accepts a hostname/IP, a capped IPv4 CIDR, or an `-iL` inventory. Target lists can remove exact hosts and IPv4 CIDRs with exclusions. |
 | Reports | Prints human-readable output and supports JSON from the native command plus normal (`-oN`), XML (`-oX`), and line-oriented grepable (`-oG`) reports from the compatibility command. |
 | Monitoring | Saves local snapshots and emits port-state changes on later scans or recurring `watch` runs. |
@@ -89,7 +92,7 @@ Supported compatibility options are `-sT`, `-sV`, `-p`, `-iL`, `--exclude`, `--e
 The native `--json` flag is intended for a small local integration surface. Use `-oN` for a readable report, `-oX` when a single-target XML document is needed, and `-oG` for compact line-oriented tooling. Noxmap's XML and grepable layouts are its own documented formats; consumers should not rely on byte-level compatibility with another scanner.
 
 ```powershell
-cargo run -- scan 127.0.0.1 --ports 80,443 --json
+cargo run -- scan 127.0.0.1 --top-ports 20 --json
 cargo run -- -sT 127.0.0.1 -p 80,443 -oG .\loopback.grep
 ```
 
