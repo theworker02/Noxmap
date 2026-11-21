@@ -20,9 +20,10 @@ scripts, databases, binaries, or assets.
 
 ## Behavioral-compatibility status
 
-Implemented: TCP connect scanning, bounded port lists/ranges, hostname scope
-validation, limited protocol identification, normal/XML/JSON reports, bounded
-IPv4 CIDR expansion, target-list parsing, monitoring snapshots, and local API.
+Implemented: TCP connect scanning, bounded port lists/ranges, Noxmap-maintained
+fast/top-port profiles, hostname scope validation, limited protocol
+identification, normal/XML/grepable/JSON reports, bounded IPv4 CIDR expansion,
+target-list parsing and exclusions, monitoring snapshots, and a local API.
 
 Not implemented: raw packet scan families, UDP scanning, exhaustive service
 probe databases, active OS detection, platform-native privilege handling,
@@ -39,3 +40,4 @@ other official distribution channels remain upstream material.
 Noxmap will publish only independently built, versioned Rust artifacts after
 platform packaging, license review, reproducible builds, checksums, and
 release notes are in place.
+
