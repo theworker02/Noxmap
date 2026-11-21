@@ -5,6 +5,18 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+/// Curated common TCP ports used by Noxmap's fast and top-port profiles.
+/// The ordering is Noxmap's maintained profile and is intentionally not copied
+/// from another scanner's service-frequency database.
+pub const COMMON_TCP_PORTS: &[u16] = &[
+    80, 443, 22, 21, 25, 53, 110, 111, 135, 139, 143, 445, 993, 995, 1723, 3306, 3389, 5900, 8080,
+    8443, 23, 69, 79, 81, 88, 109, 119, 123, 137, 138, 161, 162, 179, 194, 389, 427, 465, 500, 514,
+    515, 548, 554, 587, 631, 636, 873, 902, 989, 990, 1025, 1080, 1099, 1433, 1521, 2049, 2082,
+    2083, 2375, 3000, 3128, 3268, 3690, 4000, 4443, 4567, 5000, 5001, 5432, 5601, 5672, 5985, 5986,
+    6379, 6443, 6667, 7001, 7070, 7443, 8000, 8008, 8009, 8081, 8088, 8090, 8161, 8888, 9000, 9042,
+    9090, 9200, 9418, 9999, 10000, 11211, 15672, 27017, 49152, 50000, 25565, 1194,
+];
+
 #[derive(Debug, Clone)]
 pub struct ScanOptions {
     pub ports: Vec<u16>,
@@ -189,6 +201,22 @@ pub fn parse_ports(input: &str) -> Result<Vec<u16>, String> {
     Ok(ports)
 }
 
+/// Returns the requested number of ports from Noxmap's curated TCP profile.
+///
+/// # Errors
+///
+/// Returns an error when `count` is zero or exceeds the available maintained
+/// profile. The explicit ceiling keeps fast scans predictable and testable.
+pub fn top_tcp_ports(count: usize) -> Result<Vec<u16>, String> {
+    if count == 0 || count > COMMON_TCP_PORTS.len() {
+        return Err(format!(
+            "--top-ports must be between 1 and {}",
+            COMMON_TCP_PORTS.len()
+        ));
+    }
+    Ok(COMMON_TCP_PORTS[..count].to_vec())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,6 +234,11 @@ mod tests {
             classify_connect_error(&std::io::Error::from(std::io::ErrorKind::ConnectionRefused)),
             PortState::Closed
         );
+    }
+    #[test]
+    fn returns_the_requested_common_port_profile_size() {
+        assert_eq!(top_tcp_ports(3).unwrap(), vec![80, 443, 22]);
+        assert!(top_tcp_ports(0).is_err());
     }
 }
 
