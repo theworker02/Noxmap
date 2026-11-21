@@ -60,6 +60,98 @@ pub fn targets_from_file(path: &std::path::Path, max_hosts: usize) -> Result<Vec
     Ok(targets)
 }
 
+/// Reads newline-delimited exclusion expressions. Expressions may be an exact
+/// hostname/IP address or an IPv4 CIDR. Empty lines and comments are ignored.
+///
+/// # Errors
+///
+/// Returns an error if the exclusion file cannot be read.
+pub fn exclusions_from_file(path: &std::path::Path) -> Result<Vec<String>, String> {
+    let source = std::fs::read_to_string(path)
+        .map_err(|error| format!("could not read exclusion list: {error}"))?;
+    Ok(source
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(str::to_owned)
+        .collect())
+}
+
+/// Removes targets matched by exact hostname/IP expressions or IPv4 CIDRs.
+///
+/// # Errors
+///
+/// Returns an error for malformed CIDR exclusion expressions or if all targets
+/// are excluded. The latter prevents a command from appearing to succeed while
+/// performing no inventory work.
+pub fn apply_exclusions(
+    targets: Vec<String>,
+    exclusions: &[String],
+) -> Result<Vec<String>, String> {
+    let expressions = exclusions
+        .iter()
+        .flat_map(|value| value.split(','))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    for expression in &expressions {
+        validate_exclusion(expression)?;
+    }
+    let kept = targets
+        .into_iter()
+        .filter(|target| {
+            !expressions
+                .iter()
+                .any(|expression| matches(target, expression))
+        })
+        .collect::<Vec<_>>();
+    if kept.is_empty() {
+        return Err("every supplied target was excluded".into());
+    }
+    Ok(kept)
+}
+
+fn validate_exclusion(expression: &str) -> Result<(), String> {
+    if expression.contains('/') {
+        let (address, prefix) = expression
+            .split_once('/')
+            .ok_or_else(|| format!("invalid exclusion: {expression}"))?;
+        address
+            .parse::<std::net::Ipv4Addr>()
+            .map_err(|_| format!("only IPv4 CIDR exclusions are supported: {expression}"))?;
+        let prefix = prefix
+            .parse::<u8>()
+            .map_err(|_| format!("invalid exclusion prefix: {expression}"))?;
+        if prefix > 32 {
+            return Err(format!(
+                "exclusion prefix must be between 0 and 32: {expression}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn matches(target: &str, expression: &str) -> bool {
+    let Some((address, prefix)) = expression.split_once('/') else {
+        return target.eq_ignore_ascii_case(expression);
+    };
+    let Ok(target) = target.parse::<std::net::Ipv4Addr>() else {
+        return false;
+    };
+    let Ok(base) = address.parse::<std::net::Ipv4Addr>() else {
+        return false;
+    };
+    let Ok(prefix) = prefix.parse::<u8>() else {
+        return false;
+    };
+    let mask = if prefix == 0 {
+        0
+    } else {
+        u32::MAX << (32 - prefix)
+    };
+    (u32::from(target) & mask) == (u32::from(base) & mask)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,6 +165,19 @@ mod tests {
     #[test]
     fn bounds_large_cidr() {
         assert!(expand_cidr("192.0.2.0/24", 8).is_err());
+    }
+    #[test]
+    fn applies_exact_and_cidr_exclusions() {
+        let kept = apply_exclusions(
+            vec![
+                "192.0.2.5".into(),
+                "192.0.3.5".into(),
+                "router.local".into(),
+            ],
+            &["192.0.2.0/24,router.local".into()],
+        )
+        .unwrap();
+        assert_eq!(kept, vec!["192.0.3.5"]);
     }
 }
 
