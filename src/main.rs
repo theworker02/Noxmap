@@ -10,6 +10,7 @@ use noxmap::targets::{apply_exclusions, exclusions_from_file, expand_cidr, targe
 use noxmap::topology::{SystemTopologyProvider, TopologyProvider};
 use noxmap::{ScanOptions, ScanPolicy, Scanner};
 use std::env;
+use std::fmt::Write as _;
 use std::thread;
 use std::time::Duration;
 
@@ -28,6 +29,7 @@ struct CompatConfig {
     policy: ScanPolicy,
     output: Option<(String, ReportFormat)>,
     exclusions: Vec<String>,
+    host_discovery: bool,
 }
 
 fn main() {
@@ -221,7 +223,11 @@ fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
     tokens.extend(rest);
     let config = parse_compat_config(&tokens)?;
     let targets = compat_targets(&config)?;
-    let rendered = render_compat_reports(&config, &targets)?;
+    let rendered = if config.host_discovery {
+        render_discovery_reports(&config, &targets)?
+    } else {
+        render_compat_reports(&config, &targets)?
+    };
     if let Some((path, _)) = config.output {
         std::fs::write(&path, rendered)
             .map_err(|error| format!("could not write report: {error}"))?;
@@ -238,6 +244,7 @@ fn parse_compat_config(tokens: &[String]) -> Result<CompatConfig, String> {
     while index < tokens.len() {
         match tokens[index].as_str() {
             "-sT" | "--connect" => {}
+            "-sn" | "--host-discovery" => config.host_discovery = true,
             "-sV" | "--service-version" => config.options.identify_services = true,
             "-F" | "--fast" => config.options.ports = top_tcp_ports(100)?,
             "--top-ports" => {
@@ -353,6 +360,44 @@ fn render_compat_reports(config: &CompatConfig, targets: &[String]) -> Result<St
             _ => report::normal(&snapshot),
         };
         rendered.push_str(&report);
+    }
+    Ok(rendered)
+}
+
+fn render_discovery_reports(config: &CompatConfig, targets: &[String]) -> Result<String, String> {
+    if config
+        .output
+        .as_ref()
+        .is_some_and(|(_, format)| *format == ReportFormat::Xml)
+    {
+        return Err("-oX is not available for -sn yet; use -oN or -oG".into());
+    }
+    let scanner = Scanner::new(config.policy);
+    let mut rendered = String::new();
+    for target in targets {
+        let result = discover(&scanner, target, config.options.ports.clone())?;
+        let status = match result.status {
+            HostStatus::Responsive => "up",
+            HostStatus::NoResponse => "no-response",
+            HostStatus::Unknown => "unknown",
+        };
+        if config
+            .output
+            .as_ref()
+            .is_some_and(|(_, format)| *format == ReportFormat::Grepable)
+        {
+            let _ = writeln!(
+                rendered,
+                "Host: {}\tStatus: {status}\tEvidence: {}",
+                result.target, result.evidence
+            );
+        } else {
+            let _ = writeln!(
+                rendered,
+                "Noxmap host discovery for {}: {status} ({})",
+                result.target, result.evidence
+            );
+        }
     }
     Ok(rendered)
 }
@@ -539,6 +584,22 @@ mod tests {
                 .expect("versioned fast command should parse");
         assert!(versioned.options.identify_services);
         assert_eq!(versioned.options.ports.len(), 100);
+    }
+
+    #[test]
+    fn compatibility_host_discovery_is_explicit() {
+        let config = parse_compat_config(&[
+            "-sn".into(),
+            "-oG".into(),
+            "discovery.grep".into(),
+            "127.0.0.1".into(),
+        ])
+        .expect("host-discovery command should parse");
+        assert!(config.host_discovery);
+        assert_eq!(
+            config.output.expect("output should be present").0,
+            "discovery.grep"
+        );
     }
 }
 

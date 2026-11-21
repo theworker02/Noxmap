@@ -7,6 +7,9 @@
 - Add exact-host and IPv4-CIDR exclusions through `--exclude` and `--excludefile`.
 - Add Noxmap's line-oriented `-oG` report and document the supported compatibility command subset.
 - Add Noxmap-maintained fast (`-F`) and bounded `--top-ports` TCP profiles, with explicit `-sV` service identification in compatibility mode.
+- Add an optional native Rust desktop binary with a real scan form and live port-result table.
+- Add bounded TCP host discovery through the `-sn` compatibility option and document its transport limitations.
+- Add an original desktop design-direction visual and refine the native desktop Scan workspace.
 
 ## 0.1.0 — 2026-11-20
 

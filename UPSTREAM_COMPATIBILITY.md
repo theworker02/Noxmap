@@ -23,7 +23,8 @@ scripts, databases, binaries, or assets.
 Implemented: TCP connect scanning, bounded port lists/ranges, Noxmap-maintained
 fast/top-port profiles, hostname scope validation, limited protocol
 identification, normal/XML/grepable/JSON reports, bounded IPv4 CIDR expansion,
-target-list parsing and exclusions, monitoring snapshots, and a local API.
+target-list parsing and exclusions, bounded TCP host discovery, monitoring
+snapshots, an optional native desktop Scan workspace, and a local API.
 
 Not implemented: raw packet scan families, UDP scanning, exhaustive service
 probe databases, active OS detection, platform-native privilege handling,

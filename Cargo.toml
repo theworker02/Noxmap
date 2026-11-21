@@ -6,6 +6,13 @@ rust-version = "1.85"
 description = "A cross-platform, consent-first network inventory and observability engine."
 license = "MIT"
 
+[features]
+default = []
+desktop = ["dep:eframe"]
+
+[dependencies]
+eframe = { version = "0.31", optional = true }
+
 [lib]
 name = "noxmap"
 path = "src/lib.rs"
@@ -13,6 +20,11 @@ path = "src/lib.rs"
 [[bin]]
 name = "noxmap"
 path = "src/main.rs"
+
+[[bin]]
+name = "noxmap-desktop"
+path = "src/desktop.rs"
+required-features = ["desktop"]
 
 [lints.rust]
 unsafe_code = "forbid"

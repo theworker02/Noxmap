@@ -6,6 +6,20 @@ Noxmap is an original, Rust-native network inventory and observability tool for 
 
 The first release establishes a portable, consent-first scanning core: bounded TCP connect scans, lightweight service identification, machine-readable results, and an extensible domain model for monitoring, topology, scripting, OS identification, and a local API.
 
+## Desktop application
+
+![Noxmap desktop design direction](docs/screenshots/noxmap-desktop-concept.png)
+
+The image above is an original **design-direction concept**, not a claim that every panel is already shipped. The repository now includes a real native Rust desktop binary with an operational Scan workspace: target input, port selection, fast-profile selection, service-identification selection, explicit public-target acknowledgement, a real scan action, scan-state feedback, live result metrics, and a port-results table. Inventory, saved profiles, settings, and the richer multi-target panels shown in the concept remain future work.
+
+Build and run the desktop application with:
+
+```powershell
+cargo run --features desktop --bin noxmap-desktop
+```
+
+The GUI calls the same scanner and consent policy as the CLI; it is not a fake dashboard or a separate scanning implementation.
+
 ## Status
 
 This is an early foundation, not a drop-in replacement for Nmap. It intentionally does **not** implement raw-packet scanning, evasion, spoofing, stealth modes, exploit execution, or unauthenticated remote administration. Features are only described as available after they are implemented and tested.
@@ -69,12 +83,13 @@ For familiar operator workflows, Noxmap accepts a deliberately small compatibili
 noxmap -sT 127.0.0.1 -p 22,80,443
 noxmap -sT -F 127.0.0.1
 noxmap -sT --top-ports 20 -sV 127.0.0.1
+noxmap -sn -iL .\inventory.txt -oG .\discovery.grep
 noxmap -sT -iL .\inventory.txt --exclude 192.168.50.0/24 -oN .\scan.txt
 noxmap -sT 127.0.0.1 -p 80,443 -oX .\scan.xml
 noxmap -sT 127.0.0.1 -p 80,443 -oG .\scan.grep
 ```
 
-Supported compatibility options are `-sT`, `-sV`, `-p`, `-F`, `--top-ports`, `-iL`, `--exclude`, `--excludefile`, `-oN`, `-oX`, and `-oG`. `-F` selects Noxmap's maintained 100-port TCP profile, and `--top-ports N` selects its first `N` entries. In compatibility mode, service identification runs only when `-sV` is supplied. Unsupported scan families fail explicitly rather than being silently replaced with a different operation.
+Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-ports`, `-iL`, `--exclude`, `--excludefile`, `-oN`, `-oX`, and `-oG`. `-F` selects Noxmap's maintained 100-port TCP profile, and `--top-ports N` selects its first `N` entries. `-sn` performs bounded TCP reachability checks and does not claim ARP, ICMP, or raw-packet discovery parity. In compatibility mode, service identification runs only when `-sV` is supplied. Unsupported scan families fail explicitly rather than being silently replaced with a different operation.
 
 ## What Noxmap does today
 
@@ -83,6 +98,7 @@ Supported compatibility options are `-sT`, `-sV`, `-p`, `-F`, `--top-ports`, `-i
 | TCP port inventory | Performs bounded, concurrent TCP connection attempts and reports open, closed, filtered, unreachable, or unresolved outcomes where the operating system exposes enough information. |
 | Service identification | Uses restrained HTTP, Redis, memcached, and port-hint checks on confirmed open ports. Native scans identify by default; the compatibility command requires `-sV`. It does not run arbitrary payloads or reuse another project's probe database. |
 | Target handling | Accepts a hostname/IP, a capped IPv4 CIDR, or an `-iL` inventory. Target lists can remove exact hosts and IPv4 CIDRs with exclusions. |
+| Host discovery | Provides a bounded TCP reachability mode through `discover` and `-sn`; a connection refusal can prove a host responded. |
 | Reports | Prints human-readable output and supports JSON from the native command plus normal (`-oN`), XML (`-oX`), and line-oriented grepable (`-oG`) reports from the compatibility command. |
 | Monitoring | Saves local snapshots and emits port-state changes on later scans or recurring `watch` runs. |
 | Local integration | Exposes a loopback-only HTTP API for local automation and a data-only `.nox` script format for constrained checks. |
