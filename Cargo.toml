@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 description = "A cross-platform, consent-first network inventory and observability engine."
-license = "Apache-2.0"
+license = "MIT"
 
 [lib]
 name = "noxmap"
