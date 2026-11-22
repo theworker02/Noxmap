@@ -38,6 +38,48 @@ pub fn xml(snapshot: &ScanSnapshot) -> String {
     )
 }
 
+/// Produces a stable JSON representation of one Noxmap scan snapshot.
+///
+/// The serializer is implemented locally to keep the core dependency-light;
+/// strings are escaped according to the JSON string grammar.
+#[must_use]
+pub fn json(snapshot: &ScanSnapshot) -> String {
+    let address = snapshot.resolved_address.map_or_else(
+        || "null".to_string(),
+        |item| json_string(&item.ip().to_string()),
+    );
+    let ports = snapshot
+        .ports
+        .iter()
+        .map(|port| {
+            let latency = port
+                .latency_ms
+                .map_or_else(|| "null".to_string(), |value| value.to_string());
+            let service = port.service.as_ref().map_or_else(
+                || "null".to_string(),
+                |service| {
+                    format!(
+                        "{{\"name\":{},\"evidence\":{}}}",
+                        json_string(&service.name),
+                        json_string(&service.evidence)
+                    )
+                },
+            );
+            format!(
+                "{{\"port\":{},\"protocol\":\"tcp\",\"state\":{},\"latency_ms\":{latency},\"service\":{service}}}",
+                port.port,
+                json_string(state_name(&port.state)),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"schema\":1,\"target\":{},\"address\":{address},\"scanned_at_unix_ms\":{},\"ports\":[{ports}]}}",
+        json_string(&snapshot.target),
+        snapshot.scanned_at_unix_ms,
+    )
+}
+
 /// Produces a compact, line-oriented inventory record suitable for grep/awk
 /// style tooling. This is Noxmap's own stable text format, not a byte-for-byte
 /// reproduction of another scanner's report dialect.
@@ -84,6 +126,26 @@ fn escape(value: &str) -> String {
         .replace('>', "&gt;")
 }
 
+fn json_string(value: &str) -> String {
+    let mut output = String::with_capacity(value.len() + 2);
+    output.push('"');
+    for character in value.chars() {
+        match character {
+            '"' => output.push_str("\\\""),
+            '\\' => output.push_str("\\\\"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            character if character.is_control() => {
+                let _ = write!(output, "\\u{:04x}", u32::from(character));
+            }
+            character => output.push(character),
+        }
+    }
+    output.push('"');
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,6 +169,27 @@ mod tests {
         assert_eq!(
             grepable(&snapshot),
             "Host: loopback (unresolved)\tPorts: 80/open/tcp//unknown\n"
+        );
+    }
+    #[test]
+    fn json_escapes_string_fields_and_includes_service_evidence() {
+        let snapshot = ScanSnapshot {
+            target: "host\"name".into(),
+            resolved_address: None,
+            scanned_at_unix_ms: 12,
+            ports: vec![crate::scanner::PortResult {
+                port: 80,
+                state: PortState::Open,
+                latency_ms: Some(3),
+                service: Some(crate::service::ServiceIdentity {
+                    name: "http".into(),
+                    evidence: "HTTP/1.1\r\n".into(),
+                }),
+            }],
+        };
+        assert_eq!(
+            json(&snapshot),
+            "{\"schema\":1,\"target\":\"host\\\"name\",\"address\":null,\"scanned_at_unix_ms\":12,\"ports\":[{\"port\":80,\"protocol\":\"tcp\",\"state\":\"open\",\"latency_ms\":3,\"service\":{\"name\":\"http\",\"evidence\":\"HTTP/1.1\\r\\n\"}}]}"
         );
     }
 }
