@@ -10,6 +10,7 @@
 - Add an optional native Rust desktop binary with a real scan form and live port-result table.
 - Add bounded TCP host discovery through the `-sn` compatibility option and document its transport limitations.
 - Add an original desktop design-direction visual and refine the native desktop Scan workspace.
+- Add `diff` for comparison of the two latest Noxmap snapshots, including added and removed port inventory entries.
 
 ## 0.1.0 — 2026-11-20
 
