@@ -12,6 +12,7 @@
 - Add an original desktop design-direction visual and refine the native desktop Scan workspace.
 - Add `diff` for comparison of the two latest Noxmap snapshots, including added and removed port inventory entries.
 - Add `noxcat`, an original bounded TCP diagnostic companion client for authorized checks.
+- Add `noxping`, a bounded TCP reachability and timing companion utility.
 
 ## 0.1.0 — 2026-11-20
 
