@@ -41,16 +41,24 @@ impl SnapshotStore {
     ///
     /// Returns an error if an existing journal cannot be read or decoded.
     pub fn latest(&self, target: &str) -> Result<Option<ScanSnapshot>, String> {
+        Ok(self.history(target)?.pop())
+    }
+    /// Reads all stored snapshots for one exact target in chronological order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an existing journal cannot be read or decoded.
+    pub fn history(&self, target: &str) -> Result<Vec<ScanSnapshot>, String> {
         let file = match std::fs::File::open(&self.path) {
             Ok(file) => file,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(error) => return Err(format!("could not read snapshot store: {error}")),
         };
-        let mut found = None;
+        let mut found = Vec::new();
         for line in BufReader::new(file).lines() {
             let snapshot = decode(&line.map_err(|error| error.to_string())?)?;
             if snapshot.target == target {
-                found = Some(snapshot);
+                found.push(snapshot);
             }
         }
         Ok(found)
