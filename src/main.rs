@@ -19,6 +19,7 @@ enum ReportFormat {
     Normal,
     Xml,
     Grepable,
+    Json,
 }
 
 #[derive(Default)]
@@ -317,6 +318,13 @@ fn parse_compat_config(tokens: &[String]) -> Result<CompatConfig, String> {
                     ReportFormat::Grepable,
                 ));
             }
+            "-oJ" => {
+                index += 1;
+                config.output = Some((
+                    tokens.get(index).ok_or("-oJ requires a file path")?.clone(),
+                    ReportFormat::Json,
+                ));
+            }
             "-iL" => {
                 index += 1;
                 config.inventory =
@@ -386,12 +394,31 @@ fn compat_targets(config: &CompatConfig) -> Result<Vec<String>, String> {
 }
 
 fn render_compat_reports(config: &CompatConfig, targets: &[String]) -> Result<String, String> {
+    if config
+        .output
+        .as_ref()
+        .is_some_and(|(_, format)| *format == ReportFormat::Json)
+    {
+        let snapshots = targets
+            .iter()
+            .map(|target| Scanner::new(config.policy).scan(target, &config.options))
+            .collect::<Result<Vec<_>, _>>()?;
+        return Ok(format!(
+            "[{}]\n",
+            snapshots
+                .iter()
+                .map(report::json)
+                .collect::<Vec<_>>()
+                .join(",")
+        ));
+    }
     let mut rendered = String::new();
     for target in targets {
         let snapshot = Scanner::new(config.policy).scan(target, &config.options)?;
         let report = match config.output.as_ref().map(|(_, format)| format) {
             Some(ReportFormat::Xml) => report::xml(&snapshot),
             Some(ReportFormat::Grepable) => report::grepable(&snapshot),
+            Some(ReportFormat::Json) => unreachable!("JSON reports return above"),
             _ => report::normal(&snapshot),
         };
         rendered.push_str(&report);
@@ -505,7 +532,7 @@ fn scan_or_watch(
         let previous = store.latest(target)?;
         let result = scanner.scan(target, options)?;
         if json {
-            println!("{}", to_json(&result));
+            println!("{}", report::json(&result));
         } else {
             print_human(&result);
         }
@@ -524,7 +551,7 @@ fn scan_or_watch(
 
 fn print_help() {
     println!(
-        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap diff <target> [--state-dir .noxmap]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG <file>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
+        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap diff <target> [--state-dir .noxmap]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG|-oJ <file>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
     );
 }
 fn print_human(snapshot: &noxmap::ScanSnapshot) {
@@ -550,30 +577,6 @@ fn print_human(snapshot: &noxmap::ScanSnapshot) {
         }
     }
 }
-fn to_json(snapshot: &noxmap::ScanSnapshot) -> String {
-    let ports = snapshot
-        .ports
-        .iter()
-        .map(|port| {
-            let state = match port.state {
-                PortState::Open => "open",
-                PortState::Closed => "closed",
-                PortState::Filtered => "filtered",
-                PortState::Unreachable => "unreachable",
-                PortState::Unresolved => "unresolved",
-            };
-            format!("{{\"port\":{},\"state\":\"{}\"}}", port.port, state)
-        })
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        "{{\"target\":\"{}\",\"scanned_at_unix_ms\":{},\"ports\":[{}]}}",
-        snapshot.target.replace('"', ""),
-        snapshot.scanned_at_unix_ms,
-        ports
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::{command_targets, parse_compat_config};
