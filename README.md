@@ -20,6 +20,15 @@ cargo run --features desktop --bin noxmap-desktop
 
 The GUI calls the same scanner and consent policy as the CLI; it is not a fake dashboard or a separate scanning implementation.
 
+## Noxcat companion client
+
+Nmap distributes Ncat as a separate networking companion. Noxmap now includes an original, deliberately bounded Rust counterpart named `noxcat`. It is a TCP diagnostic client for authorized checks—not a listener, proxy, relay, or remote-administration tool. It limits a single reply to 8 KiB, uses timeouts, and requires `--allow-public` for public destinations.
+
+```powershell
+cargo run --bin noxcat -- 127.0.0.1 80 --send "HEAD / HTTP/1.0`r`n`r`n"
+cargo run --bin noxcat -- example.com 443 --allow-public --timeout-ms 1500 --no-read
+```
+
 ## Status
 
 This is an early foundation, not a drop-in replacement for Nmap. It intentionally does **not** implement raw-packet scanning, evasion, spoofing, stealth modes, exploit execution, or unauthenticated remote administration. Features are only described as available after they are implemented and tested.
@@ -103,6 +112,7 @@ Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-port
 | Reports | Prints human-readable output and supports JSON from the native command plus normal (`-oN`), XML (`-oX`), and line-oriented grepable (`-oG`) reports from the compatibility command. |
 | Monitoring and comparison | Saves local snapshots, emits changes during `watch`, and provides `diff` to compare the two most recent snapshots for a target. |
 | Local integration | Exposes a loopback-only HTTP API for local automation and a data-only `.nox` script format for constrained checks. |
+| Companion client | Provides `noxcat`, a bounded TCP diagnostic client for authorized one-to-one protocol checks. |
 
 ## Output and automation
 
