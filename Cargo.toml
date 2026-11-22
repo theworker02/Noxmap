@@ -31,6 +31,10 @@ required-features = ["desktop"]
 name = "noxcat"
 path = "src/noxcat.rs"
 
+[[bin]]
+name = "noxping"
+path = "src/noxping.rs"
+
 [lints.rust]
 unsafe_code = "forbid"
 
