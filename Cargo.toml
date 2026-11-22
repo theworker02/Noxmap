@@ -27,6 +27,10 @@ name = "noxmap-desktop"
 path = "src/desktop.rs"
 required-features = ["desktop"]
 
+[[bin]]
+name = "noxcat"
+path = "src/noxcat.rs"
+
 [lints.rust]
 unsafe_code = "forbid"
 
