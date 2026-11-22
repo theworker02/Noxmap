@@ -14,7 +14,7 @@ scripts, databases, binaries, or assets.
 | Service probes and service database | Active protocol identification | `src/service.rs`; original probe databases are not copied |
 | OS fingerprinting core/database | Fingerprint collection and matching | `src/fingerprint.rs`; service-evidence inference only today |
 | `scripts` and `nselib` | Script execution and shared libraries | `src/scripting.rs`; data-only, capability-scoped `.nox` scripts |
-| `ncat`, `nping`, `ndiff` | Companion networking tools and output comparison | `noxcat` bounded TCP client and local snapshot comparison implemented; packet generator remains future work |
+| `ncat`, `nping`, `ndiff` | Companion networking tools and output comparison | `noxcat` bounded TCP client, `noxping` TCP timing, and local snapshot comparison implemented; raw packet generation remains future work |
 | `zenmap` | Graphical UI | A Noxmap desktop UI is future work |
 | `docs`, `tests`, platform build folders | Documentation, tests, packaging | README, architecture, unit tests; release packaging is not implemented |
 
@@ -25,7 +25,7 @@ fast/top-port profiles, hostname scope validation, limited protocol
 identification, normal/XML/grepable/JSON reports, bounded IPv4 CIDR expansion,
 target-list parsing and exclusions, bounded TCP host discovery, monitoring
 snapshots, local snapshot comparison, an optional native desktop Scan workspace,
-an authorized bounded TCP companion client, and a local API.
+authorized bounded TCP companion utilities, and a local API.
 
 Not implemented: raw packet scan families, UDP scanning, exhaustive service
 probe databases, active OS detection, platform-native privilege handling,
