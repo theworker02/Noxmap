@@ -106,9 +106,10 @@ noxmap -sn -iL .\inventory.txt -oG .\discovery.grep
 noxmap -sT -iL .\inventory.txt --exclude 192.168.50.0/24 -oN .\scan.txt
 noxmap -sT 127.0.0.1 -p 80,443 -oX .\scan.xml
 noxmap -sT 127.0.0.1 -p 80,443 -oG .\scan.grep
+noxmap -sT -iL .\inventory.txt -p 80,443 -oJ .\scan.json
 ```
 
-Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-ports`, `-iL`, `--exclude`, `--excludefile`, `-oN`, `-oX`, and `-oG`. `-F` selects Noxmap's maintained 100-port TCP profile, and `--top-ports N` selects its first `N` entries. `-sn` performs bounded TCP reachability checks and does not claim ARP, ICMP, or raw-packet discovery parity. In compatibility mode, service identification runs only when `-sV` is supplied. Unsupported scan families fail explicitly rather than being silently replaced with a different operation.
+Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-ports`, `-iL`, `--exclude`, `--excludefile`, `-oN`, `-oX`, `-oG`, and `-oJ`. `-F` selects Noxmap's maintained 100-port TCP profile, and `--top-ports N` selects its first `N` entries. `-sn` performs bounded TCP reachability checks and does not claim ARP, ICMP, or raw-packet discovery parity. In compatibility mode, service identification runs only when `-sV` is supplied. Unsupported scan families fail explicitly rather than being silently replaced with a different operation.
 
 ## What Noxmap does today
 
@@ -118,7 +119,7 @@ Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-port
 | Service identification | Uses restrained HTTP, Redis, memcached, and port-hint checks on confirmed open ports. Native scans identify by default; the compatibility command requires `-sV`. It does not run arbitrary payloads or reuse another project's probe database. |
 | Target handling | Accepts a hostname/IP, a capped IPv4 CIDR, or an `-iL` inventory. Target lists can remove exact hosts and IPv4 CIDRs with exclusions. |
 | Host discovery | Provides a bounded TCP reachability mode through `discover` and `-sn`; a connection refusal can prove a host responded. |
-| Reports | Prints human-readable output and supports JSON from the native command plus normal (`-oN`), XML (`-oX`), and line-oriented grepable (`-oG`) reports from the compatibility command. |
+| Reports | Prints human-readable output and supports a shared JSON schema from native `--json` and compatibility `-oJ`, plus normal (`-oN`), XML (`-oX`), and line-oriented grepable (`-oG`) reports. |
 | Monitoring and comparison | Saves local snapshots, emits changes during `watch`, and provides `diff` to compare the two most recent snapshots for a target. |
 | Local integration | Exposes a loopback-only HTTP API for local automation and a data-only `.nox` script format for constrained checks. |
 | Companion client | Provides `noxcat`, a bounded TCP diagnostic client for authorized one-to-one protocol checks. |
@@ -126,11 +127,12 @@ Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-port
 
 ## Output and automation
 
-The native `--json` flag is intended for a small local integration surface. Use `-oN` for a readable report, `-oX` when a single-target XML document is needed, and `-oG` for compact line-oriented tooling. Noxmap's XML and grepable layouts are its own documented formats; consumers should not rely on byte-level compatibility with another scanner.
+The native `--json` flag and compatibility `-oJ` use Noxmap's stable JSON schema, including address, port state, latency, and service evidence. `-oJ` emits an array so a target inventory remains one valid document. Use `-oN` for a readable report, `-oX` when a single-target XML document is needed, and `-oG` for compact line-oriented tooling. Noxmap's XML and grepable layouts are its own documented formats; consumers should not rely on byte-level compatibility with another scanner.
 
 ```powershell
 cargo run -- scan 127.0.0.1 --top-ports 20 --json
 cargo run -- -sT 127.0.0.1 -p 80,443 -oG .\loopback.grep
+cargo run -- -sT -iL .\inventory.txt -p 80,443 -oJ .\inventory.json
 ```
 
 ## Snapshot comparison
