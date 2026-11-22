@@ -62,6 +62,7 @@ noxmap scan <target> --top-ports <1-100> [scan options]
 noxmap scan <ipv4-cidr> [scan options]
 noxmap scan -iL <authorized-inventory.txt> [scan options]
 noxmap watch <target> [scan options] [--interval-secs <n>]
+noxmap diff <target> [--state-dir .noxmap]
 ```
 
 Port specifications accept comma-separated ports and inclusive ranges, for example `22,80,443,8000-8100`. The default is a small inventory-oriented set of common TCP services.
@@ -100,7 +101,7 @@ Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-port
 | Target handling | Accepts a hostname/IP, a capped IPv4 CIDR, or an `-iL` inventory. Target lists can remove exact hosts and IPv4 CIDRs with exclusions. |
 | Host discovery | Provides a bounded TCP reachability mode through `discover` and `-sn`; a connection refusal can prove a host responded. |
 | Reports | Prints human-readable output and supports JSON from the native command plus normal (`-oN`), XML (`-oX`), and line-oriented grepable (`-oG`) reports from the compatibility command. |
-| Monitoring | Saves local snapshots and emits port-state changes on later scans or recurring `watch` runs. |
+| Monitoring and comparison | Saves local snapshots, emits changes during `watch`, and provides `diff` to compare the two most recent snapshots for a target. |
 | Local integration | Exposes a loopback-only HTTP API for local automation and a data-only `.nox` script format for constrained checks. |
 
 ## Output and automation
@@ -110,6 +111,16 @@ The native `--json` flag is intended for a small local integration surface. Use 
 ```powershell
 cargo run -- scan 127.0.0.1 --top-ports 20 --json
 cargo run -- -sT 127.0.0.1 -p 80,443 -oG .\loopback.grep
+```
+
+## Snapshot comparison
+
+Noxmap saves each native `scan` and `watch` result locally. The `diff` command compares the two latest snapshots for one target and reports opened, closed, newly added, or removed port entries. This is an original Noxmap snapshot workflow inspired by the practical use case served by Nmap's separate `ndiff` companion; it does not parse or claim compatibility with Nmap XML.
+
+```powershell
+cargo run -- scan 127.0.0.1 --ports 22,80 --state-dir .\state
+# Make another scan after the target state or selected ports have changed.
+cargo run -- diff 127.0.0.1 --state-dir .\state
 ```
 
 ## Architecture
