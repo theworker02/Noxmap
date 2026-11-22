@@ -121,6 +121,7 @@ fn execute_command(command: String, command_args: Vec<String>) -> Result<(), Str
             }
             Ok(())
         }
+        "diff" => handle_diff(args),
         "script" => {
             let script_path = args.next().ok_or("a .nox script path is required")?;
             let target = args.next().ok_or("a target is required")?;
@@ -146,6 +147,40 @@ fn execute_command(command: String, command_args: Vec<String>) -> Result<(), Str
         }
         _ => compat_scan(command, args.collect()),
     }
+}
+
+fn handle_diff(arguments: impl Iterator<Item = String>) -> Result<(), String> {
+    let mut arguments = arguments;
+    let target = arguments.next().ok_or("a target is required")?;
+    let state_dir = diff_arguments(arguments)?;
+    let history = SnapshotStore::open(state_dir)?.history(&target)?;
+    if history.len() < 2 {
+        return Err("diff requires at least two saved snapshots for the target".into());
+    }
+    let previous = &history[history.len() - 2];
+    let current = &history[history.len() - 1];
+    let changes = diff(previous, current);
+    if changes.is_empty() {
+        println!("no port changes between the two latest snapshots for {target}");
+    } else {
+        println!("Noxmap snapshot diff for {target}");
+        for change in changes {
+            println!("  {}/tcp {:?}", change.port, change.kind);
+        }
+    }
+    Ok(())
+}
+
+fn diff_arguments(arguments: impl Iterator<Item = String>) -> Result<String, String> {
+    let mut state_dir = ".noxmap".to_string();
+    let mut arguments = arguments;
+    while let Some(flag) = arguments.next() {
+        match flag.as_str() {
+            "--state-dir" => state_dir = arguments.next().ok_or("--state-dir requires a value")?,
+            _ => return Err(format!("unknown diff option: {flag}")),
+        }
+    }
+    Ok(state_dir)
 }
 
 /// Splits scan options from one target, a bounded IPv4 CIDR, or a Nmap-style
@@ -489,7 +524,7 @@ fn scan_or_watch(
 
 fn print_help() {
     println!(
-        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG <file>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
+        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap diff <target> [--state-dir .noxmap]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG <file>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
     );
 }
 fn print_human(snapshot: &noxmap::ScanSnapshot) {
