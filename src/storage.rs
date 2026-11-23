@@ -135,6 +135,8 @@ fn decode_port(value: &str) -> Result<PortResult, String> {
         .map(|name| ServiceIdentity {
             name: name.into(),
             evidence: "stored result".into(),
+            product: None,
+            version: None,
         });
     Ok(PortResult {
         port,
@@ -152,4 +154,3 @@ fn state_code(state: &PortState) -> &'static str {
         PortState::Unresolved => "u",
     }
 }
-
