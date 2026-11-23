@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an original Noxmap wordmark, editable architecture and lifecycle SVG
+  diagrams, verified-fact README badges, and a visual-capture policy.
 - Expand Noxmap's original safe service-identification layer with banner-first
   FTP, SMTP, POP3, IMAP, VNC, and AMQP recognition plus bounded capability
   queries where a protocol requires an initial request.
@@ -41,3 +43,4 @@
 Noxmap releases represent independently built Rust artifacts only. Upstream
 Nmap releases, binaries, scripts, service data, and licensing remain upstream
 material and are not republished as Noxmap artifacts.
+
