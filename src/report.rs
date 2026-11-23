@@ -7,18 +7,21 @@ pub fn normal(snapshot: &ScanSnapshot) -> String {
         .resolved_address
         .map_or_else(|| "unresolved".into(), |item| item.ip().to_string());
     let mut output = format!(
-        "Noxmap scan report for {} ({address})\nPORT      STATE       SERVICE\n",
+        "Noxmap scan report for {} ({address})\nPORT      STATE       SERVICE      EVIDENCE\n",
         snapshot.target
     );
     for port in &snapshot.ports {
         let _ = writeln!(
             output,
-            "{}/tcp {:<11} {}",
+            "{}/tcp {:<11} {:<12} {}",
             port.port,
             state_name(&port.state),
             port.service
                 .as_ref()
-                .map_or("unknown", |service| service.name.as_str())
+                .map_or("unknown", |service| service.name.as_str()),
+            port.service
+                .as_ref()
+                .map_or("", |service| service.evidence.as_str())
         );
     }
     output
@@ -29,7 +32,7 @@ pub fn xml(snapshot: &ScanSnapshot) -> String {
     let address = snapshot
         .resolved_address
         .map_or_else(String::new, |item| item.ip().to_string());
-    let ports = snapshot.ports.iter().map(|port| format!("    <port protocol=\"tcp\" number=\"{}\"><state value=\"{}\"/><service name=\"{}\"/></port>", port.port, state_name(&port.state), port.service.as_ref().map_or("unknown", |service| service.name.as_str()))).collect::<Vec<_>>().join("\n");
+    let ports = snapshot.ports.iter().map(|port| format!("    <port protocol=\"tcp\" number=\"{}\"><state value=\"{}\"/><service name=\"{}\" evidence=\"{}\"/></port>", port.port, state_name(&port.state), port.service.as_ref().map_or("unknown", |service| service.name.as_str()), port.service.as_ref().map_or_else(String::new, |service| escape(&service.evidence)))).collect::<Vec<_>>().join("\n");
     format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<noxmaprun schema=\"1\">\n  <host target=\"{}\" address=\"{}\">\n  <ports>\n{}\n  </ports>\n  </host>\n</noxmaprun>\n",
         escape(&snapshot.target),
@@ -193,4 +196,3 @@ mod tests {
         );
     }
 }
-
