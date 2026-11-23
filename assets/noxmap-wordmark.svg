@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 256" role="img" aria-labelledby="title description">
+  <title id="title">Noxmap wordmark</title>
+  <description id="description">Noxmap logo mark with a restrained technical wordmark.</description>
+  <rect width="900" height="256" rx="32" fill="#101827"/>
+  <path fill="none" stroke="#2563eb" stroke-width="14" d="M128 20 219 73v110l-91 53-91-53V73z"/>
+  <circle cx="128" cy="128" r="57" fill="none" stroke="#f8fafc" stroke-width="12"/>
+  <path fill="#8b5cf6" d="m128 50 18 59-18-10-18 10zM128 206l-18-59 18 10 18-10z"/>
+  <path fill="none" stroke="#2563eb" stroke-width="14" stroke-linejoin="round" d="m72 128h34l16-30 18 62 13-25h31"/>
+  <text x="286" y="151" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="94" font-weight="700" letter-spacing="5">NOXMAP</text>
+  <text x="292" y="194" fill="#9fb5d5" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600" letter-spacing="3">AUTHORIZED NETWORK INVENTORY</text>
+</svg>
+
