@@ -32,7 +32,7 @@ pub fn xml(snapshot: &ScanSnapshot) -> String {
     let address = snapshot
         .resolved_address
         .map_or_else(String::new, |item| item.ip().to_string());
-    let ports = snapshot.ports.iter().map(|port| format!("    <port protocol=\"tcp\" number=\"{}\"><state value=\"{}\"/><service name=\"{}\" evidence=\"{}\"/></port>", port.port, state_name(&port.state), port.service.as_ref().map_or("unknown", |service| service.name.as_str()), port.service.as_ref().map_or_else(String::new, |service| escape(&service.evidence)))).collect::<Vec<_>>().join("\n");
+    let ports = snapshot.ports.iter().map(|port| format!("    <port protocol=\"tcp\" number=\"{}\"><state value=\"{}\"/><service name=\"{}\" product=\"{}\" version=\"{}\" evidence=\"{}\"/></port>", port.port, state_name(&port.state), port.service.as_ref().map_or("unknown", |service| service.name.as_str()), port.service.as_ref().and_then(|service| service.product.as_deref()).map_or_else(String::new, escape), port.service.as_ref().and_then(|service| service.version.as_deref()).map_or_else(String::new, escape), port.service.as_ref().map_or_else(String::new, |service| escape(&service.evidence)))).collect::<Vec<_>>().join("\n");
     format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<noxmaprun schema=\"1\">\n  <host target=\"{}\" address=\"{}\">\n  <ports>\n{}\n  </ports>\n  </host>\n</noxmaprun>\n",
         escape(&snapshot.target),
@@ -62,9 +62,11 @@ pub fn json(snapshot: &ScanSnapshot) -> String {
                 || "null".to_string(),
                 |service| {
                     format!(
-                        "{{\"name\":{},\"evidence\":{}}}",
+                        "{{\"name\":{},\"evidence\":{},\"product\":{},\"version\":{}}}",
                         json_string(&service.name),
-                        json_string(&service.evidence)
+                        json_string(&service.evidence),
+                        optional_json_string(service.product.as_deref()),
+                        optional_json_string(service.version.as_deref())
                     )
                 },
             );
@@ -149,6 +151,10 @@ fn json_string(value: &str) -> String {
     output
 }
 
+fn optional_json_string(value: Option<&str>) -> String {
+    value.map_or_else(|| "null".into(), json_string)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,12 +193,14 @@ mod tests {
                 service: Some(crate::service::ServiceIdentity {
                     name: "http".into(),
                     evidence: "HTTP/1.1\r\n".into(),
+                    product: None,
+                    version: None,
                 }),
             }],
         };
         assert_eq!(
             json(&snapshot),
-            "{\"schema\":1,\"target\":\"host\\\"name\",\"address\":null,\"scanned_at_unix_ms\":12,\"ports\":[{\"port\":80,\"protocol\":\"tcp\",\"state\":\"open\",\"latency_ms\":3,\"service\":{\"name\":\"http\",\"evidence\":\"HTTP/1.1\\r\\n\"}}]}"
+            "{\"schema\":1,\"target\":\"host\\\"name\",\"address\":null,\"scanned_at_unix_ms\":12,\"ports\":[{\"port\":80,\"protocol\":\"tcp\",\"state\":\"open\",\"latency_ms\":3,\"service\":{\"name\":\"http\",\"evidence\":\"HTTP/1.1\\r\\n\",\"product\":null,\"version\":null}}]}"
         );
     }
 }
