@@ -7,6 +7,8 @@
   queries where a protocol requires an initial request.
 - Preserve printable, length-bounded service evidence in normal, XML, and JSON
   reports, with XML attribute escaping for evidence.
+- Extract optional product/version observations from untrusted banners only when
+  a compact protocol-specific form makes that attribution unambiguous.
 
 ## Unreleased
 
