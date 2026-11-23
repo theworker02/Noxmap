@@ -123,9 +123,10 @@ noxmap -sT -iL .\inventory.txt --exclude 192.168.50.0/24 -oN .\scan.txt
 noxmap -sT 127.0.0.1 -p 80,443 -oX .\scan.xml
 noxmap -sT 127.0.0.1 -p 80,443 -oG .\scan.grep
 noxmap -sT -iL .\inventory.txt -p 80,443 -oJ .\scan.json
+noxmap -sT -iL .\inventory.txt -p 80,443 -oA .\inventory
 ```
 
-Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-ports`, `-iL`, `--exclude`, `--excludefile`, `-oN`, `-oX`, `-oG`, and `-oJ`. `-F` selects Noxmap's maintained 100-port TCP profile, and `--top-ports N` selects its first `N` entries. `-sn` performs bounded TCP reachability checks and does not claim ARP, ICMP, or raw-packet discovery parity. In compatibility mode, service identification runs only when `-sV` is supplied. Unsupported scan families fail explicitly rather than being silently replaced with a different operation.
+Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-ports`, `-iL`, `--exclude`, `--excludefile`, `-oN`, `-oX`, `-oG`, `-oJ`, and `-oA`. `-oA <prefix>` writes Noxmap's normal, XML, grepable, and JSON reports in one bundle (`<prefix>.nmap`, `.xml`, `.grep`, and `.json`) from one in-memory scan result. `-F` selects Noxmap's maintained 100-port TCP profile, and `--top-ports N` selects its first `N` entries. `-sn` performs bounded TCP reachability checks and does not claim ARP, ICMP, or raw-packet discovery parity. In compatibility mode, service identification runs only when `-sV` is supplied. Unsupported scan families fail explicitly rather than being silently replaced with a different operation.
 
 ## What Noxmap does today
 
