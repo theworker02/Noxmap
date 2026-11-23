@@ -1,4 +1,5 @@
 use noxmap::api::serve_loopback;
+use noxmap::baseline::{ExpectedState, evaluate, load as load_baseline};
 use noxmap::discovery::{HostStatus, discover};
 use noxmap::fingerprint::infer_from_services;
 use noxmap::monitoring::diff;
@@ -123,6 +124,7 @@ fn execute_command(command: String, command_args: Vec<String>) -> Result<(), Str
             Ok(())
         }
         "diff" => handle_diff(args),
+        "audit" => handle_audit(args),
         "script" => {
             let script_path = args.next().ok_or("a .nox script path is required")?;
             let target = args.next().ok_or("a target is required")?;
@@ -170,6 +172,67 @@ fn handle_diff(arguments: impl Iterator<Item = String>) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn handle_audit(arguments: impl Iterator<Item = String>) -> Result<(), String> {
+    let mut arguments = arguments;
+    let baseline_path = arguments.next().ok_or("a baseline path is required")?;
+    let (policy, timeout, concurrency) = audit_arguments(arguments)?;
+    let baseline = load_baseline(std::path::Path::new(&baseline_path))?;
+    let mut options = baseline.scan_options();
+    options.timeout = timeout;
+    options.concurrency = concurrency;
+    let snapshot = Scanner::new(policy).scan(&baseline.target, &options)?;
+    let violations = evaluate(&baseline, &snapshot);
+    if violations.is_empty() {
+        println!("baseline passed for {}", baseline.target);
+        return Ok(());
+    }
+    println!("baseline drift for {}", baseline.target);
+    for violation in violations {
+        let expected = match violation.expected {
+            ExpectedState::Open => "open",
+            ExpectedState::Closed => "closed",
+        };
+        println!(
+            "  {}/tcp expected {expected}, observed {}",
+            violation.port,
+            report::state_name(&violation.observed)
+        );
+    }
+    Err("baseline audit found drift".into())
+}
+
+fn audit_arguments(
+    arguments: impl Iterator<Item = String>,
+) -> Result<(ScanPolicy, Duration, usize), String> {
+    let mut policy = ScanPolicy::default();
+    let mut timeout = Duration::from_millis(800);
+    let mut concurrency = 32;
+    let mut arguments = arguments;
+    while let Some(flag) = arguments.next() {
+        match flag.as_str() {
+            "--allow-public" => policy.allow_public = true,
+            "--timeout-ms" => {
+                timeout = Duration::from_millis(
+                    arguments
+                        .next()
+                        .ok_or("--timeout-ms requires a value")?
+                        .parse()
+                        .map_err(|_| "timeout must be a number")?,
+                );
+            }
+            "--concurrency" => {
+                concurrency = arguments
+                    .next()
+                    .ok_or("--concurrency requires a value")?
+                    .parse()
+                    .map_err(|_| "concurrency must be a number")?;
+            }
+            _ => return Err(format!("unknown audit option: {flag}")),
+        }
+    }
+    Ok((policy, timeout, concurrency))
 }
 
 fn diff_arguments(arguments: impl Iterator<Item = String>) -> Result<String, String> {
@@ -551,7 +614,7 @@ fn scan_or_watch(
 
 fn print_help() {
     println!(
-        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap diff <target> [--state-dir .noxmap]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG|-oJ <file>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
+        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap diff <target> [--state-dir .noxmap]\n  noxmap audit <baseline.noxbaseline> [--allow-public]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG|-oJ <file>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
     );
 }
 fn print_human(snapshot: &noxmap::ScanSnapshot) {
