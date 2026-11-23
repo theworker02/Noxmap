@@ -11,26 +11,26 @@ scripts, databases, binaries, or assets.
 | --- | --- | --- |
 | Root scanner core and scan engines | Target handling, timing, port-state collection, raw and connect scans | `src/scanner.rs`, `src/policy.rs`, `src/targets.rs`; TCP connect engine implemented, other engines planned |
 | `libnetutil`, `nbase`, `nsock` | Low-level networking, packet support, asynchronous I/O | Rust standard networking today; platform capability adapters remain planned |
-| Service probes and service database | Active protocol identification | `src/service.rs`; original probe databases are not copied |
+| Service probes and service database | Active protocol identification | `src/service.rs`; bounded clean-room FTP, HTTP, SMTP, POP3, IMAP, Redis, memcached, SSH, VNC, and AMQP identification; original probe databases are not copied |
 | OS fingerprinting core/database | Fingerprint collection and matching | `src/fingerprint.rs`; service-evidence inference only today |
 | `scripts` and `nselib` | Script execution and shared libraries | `src/scripting.rs`; data-only, capability-scoped `.nox` scripts |
 | `ncat`, `nping`, `ndiff` | Companion networking tools and output comparison | `noxcat` bounded TCP client, `noxping` TCP timing, and local snapshot comparison implemented; raw packet generation remains future work |
-| `zenmap` | Graphical UI | A Noxmap desktop UI is future work |
+| `zenmap` | Graphical UI | Optional native Rust Scan workspace implemented in `src/desktop.rs`; inventory and saved-profile surfaces remain planned |
 | `docs`, `tests`, platform build folders | Documentation, tests, packaging | README, architecture, unit tests; release packaging is not implemented |
 
 ## Behavioral-compatibility status
 
 Implemented: TCP connect scanning, bounded port lists/ranges, Noxmap-maintained
-fast/top-port profiles, hostname scope validation, limited protocol
-identification, normal/XML/grepable/JSON reports, bounded IPv4 CIDR expansion,
+fast/top-port profiles, hostname scope validation, a bounded clean-room
+protocol-identification set, normal/XML/grepable/JSON reports, bounded IPv4 CIDR expansion,
 target-list parsing and exclusions, bounded TCP host discovery, monitoring
 snapshots, local snapshot comparison, an optional native desktop Scan workspace,
 authorized bounded TCP companion utilities, desired-state audits, and a local API.
 
 Not implemented: raw packet scan families, UDP scanning, exhaustive service
 probe databases, active OS detection, platform-native privilege handling,
-full script compatibility, distributed companion tools, desktop UI, and
-installer packaging.
+full script compatibility, distributed companion tools, desktop inventory and
+saved-profile surfaces, and installer packaging.
 
 ## Release inventory
 
@@ -42,4 +42,3 @@ other official distribution channels remain upstream material.
 Noxmap will publish only independently built, versioned Rust artifacts after
 platform packaging, license review, reproducible builds, checksums, and
 release notes are in place.
-
