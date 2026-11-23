@@ -116,7 +116,7 @@ Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-port
 | Capability | Behavior |
 | --- | --- |
 | TCP port inventory | Performs bounded, concurrent TCP connection attempts and reports open, closed, filtered, unreachable, or unresolved outcomes where the operating system exposes enough information. |
-| Service identification | Uses a restrained original probe set for HTTP, FTP, SMTP, POP3, IMAP, Redis, memcached, and banner-first SSH/VNC/AMQP services, then records short protocol evidence or a well-known-port hint. Native scans identify by default; the compatibility command requires `-sV`. It does not run arbitrary payloads, credentials, or another project's probe database. |
+| Service identification | Uses a restrained original probe set for HTTP, FTP, SMTP, POP3, IMAP, Redis, memcached, and banner-first SSH/VNC/AMQP services, then records short protocol evidence, cautiously parsed product/version fields when a banner supplies them, or a well-known-port hint. Native scans identify by default; the compatibility command requires `-sV`. It does not run arbitrary payloads, credentials, or another project's probe database. |
 | Target handling | Accepts a hostname/IP, a capped IPv4 CIDR, or an `-iL` inventory. Target lists can remove exact hosts and IPv4 CIDRs with exclusions. |
 | Host discovery | Provides a bounded TCP reachability mode through `discover` and `-sn`; a connection refusal can prove a host responded. |
 | Reports | Prints human-readable output and supports a shared JSON schema from native `--json` and compatibility `-oJ`, plus normal (`-oN`), XML (`-oX`), and line-oriented grepable (`-oG`) reports. |
@@ -128,7 +128,7 @@ Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-port
 
 ## Output and automation
 
-The native `--json` flag and compatibility `-oJ` use Noxmap's stable JSON schema, including address, port state, latency, and service evidence. `-oJ` emits an array so a target inventory remains one valid document. Use `-oN` for a readable report, `-oX` when a single-target XML document is needed, and `-oG` for compact line-oriented tooling. Noxmap's XML and grepable layouts are its own documented formats; consumers should not rely on byte-level compatibility with another scanner.
+The native `--json` flag and compatibility `-oJ` use Noxmap's stable JSON schema, including address, port state, latency, service evidence, and optional product/version observations. `-oJ` emits an array so a target inventory remains one valid document. Use `-oN` for a readable report, `-oX` when a single-target XML document is needed, and `-oG` for compact line-oriented tooling. Noxmap's XML and grepable layouts are its own documented formats; consumers should not rely on byte-level compatibility with another scanner.
 
 ```powershell
 cargo run -- scan 127.0.0.1 --top-ports 20 --json
