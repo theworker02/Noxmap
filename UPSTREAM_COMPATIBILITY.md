@@ -22,7 +22,8 @@ scripts, databases, binaries, or assets.
 
 Implemented: TCP connect scanning, bounded port lists/ranges, Noxmap-maintained
 fast/top-port profiles, hostname scope validation, a bounded clean-room
-protocol-identification set, normal/XML/grepable/JSON reports, bounded IPv4 CIDR expansion,
+protocol-identification set, normal/XML/grepable/JSON reports, one-scan `-oA`
+report bundles, bounded IPv4 CIDR expansion,
 target-list parsing and exclusions, bounded TCP host discovery, monitoring
 snapshots, local snapshot comparison, an optional native desktop Scan workspace,
 authorized bounded TCP companion utilities, desired-state audits, and a local API.
@@ -42,3 +43,4 @@ other official distribution channels remain upstream material.
 Noxmap will publish only independently built, versioned Rust artifacts after
 platform packaging, license review, reproducible builds, checksums, and
 release notes are in place.
+
