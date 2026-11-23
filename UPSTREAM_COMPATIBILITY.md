@@ -25,7 +25,7 @@ fast/top-port profiles, hostname scope validation, limited protocol
 identification, normal/XML/grepable/JSON reports, bounded IPv4 CIDR expansion,
 target-list parsing and exclusions, bounded TCP host discovery, monitoring
 snapshots, local snapshot comparison, an optional native desktop Scan workspace,
-authorized bounded TCP companion utilities, and a local API.
+authorized bounded TCP companion utilities, desired-state audits, and a local API.
 
 Not implemented: raw packet scan families, UDP scanning, exhaustive service
 probe databases, active OS detection, platform-native privilege handling,
