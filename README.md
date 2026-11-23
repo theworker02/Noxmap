@@ -116,7 +116,7 @@ Supported compatibility options are `-sT`, `-sV`, `-sn`, `-p`, `-F`, `--top-port
 | Capability | Behavior |
 | --- | --- |
 | TCP port inventory | Performs bounded, concurrent TCP connection attempts and reports open, closed, filtered, unreachable, or unresolved outcomes where the operating system exposes enough information. |
-| Service identification | Uses restrained HTTP, Redis, memcached, and port-hint checks on confirmed open ports. Native scans identify by default; the compatibility command requires `-sV`. It does not run arbitrary payloads or reuse another project's probe database. |
+| Service identification | Uses a restrained original probe set for HTTP, FTP, SMTP, POP3, IMAP, Redis, memcached, and banner-first SSH/VNC/AMQP services, then records short protocol evidence or a well-known-port hint. Native scans identify by default; the compatibility command requires `-sV`. It does not run arbitrary payloads, credentials, or another project's probe database. |
 | Target handling | Accepts a hostname/IP, a capped IPv4 CIDR, or an `-iL` inventory. Target lists can remove exact hosts and IPv4 CIDRs with exclusions. |
 | Host discovery | Provides a bounded TCP reachability mode through `discover` and `-sn`; a connection refusal can prove a host responded. |
 | Reports | Prints human-readable output and supports a shared JSON schema from native `--json` and compatibility `-oJ`, plus normal (`-oN`), XML (`-oX`), and line-oriented grepable (`-oG`) reports. |
@@ -239,4 +239,3 @@ action=service:http
 3. Add passive OS evidence collection with provenance and confidence scoring.
 4. Add signed, capability-scoped WASM scripts after a sandbox is in place.
 5. Add a desktop client and continuous monitoring schedules with notification adapters.
-
