@@ -1,6 +1,7 @@
 //! Noxmap core domain and safe TCP inventory scanner.
 
 pub mod api;
+pub mod baseline;
 pub mod discovery;
 pub mod fingerprint;
 pub mod monitoring;
