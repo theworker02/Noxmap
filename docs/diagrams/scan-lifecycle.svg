@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title description">
+  <title id="title">Noxmap scan lifecycle</title>
+  <description id="description">A five-step lifecycle: authorize, resolve, scan, identify, and report or compare.</description>
+  <rect width="1200" height="360" rx="24" fill="#0e131c"/>
+  <text x="60" y="72" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">Bounded scan lifecycle</text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <g fill="#182536" stroke="#36536f" stroke-width="2"><circle cx="130" cy="190" r="62"/><circle cx="365" cy="190" r="62"/><circle cx="600" cy="190" r="62"/><circle cx="835" cy="190" r="62"/><circle cx="1070" cy="190" r="62"/></g>
+    <g fill="#4f9cff" font-size="27" font-weight="700"><text x="120" y="199">1</text><text x="355" y="199">2</text><text x="590" y="199">3</text><text x="825" y="199">4</text><text x="1060" y="199">5</text></g>
+    <g fill="#f8fafc" font-size="20" font-weight="700" text-anchor="middle"><text x="130" y="285">Authorize</text><text x="365" y="285">Resolve</text><text x="600" y="285">Connect</text><text x="835" y="285">Identify</text><text x="1070" y="285">Report</text></g>
+    <g stroke="#8b5cf6" stroke-width="4" fill="none" marker-end="url(#arrow)"><path d="M194 190h103"/><path d="M429 190h103"/><path d="M664 190h103"/><path d="M899 190h103"/></g>
+  </g>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0 9 3 0 6" fill="none" stroke="#8b5cf6" stroke-width="2"/></marker></defs>
+</svg>
+
