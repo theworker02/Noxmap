@@ -11,6 +11,8 @@
   reports, with XML attribute escaping for evidence.
 - Extract optional product/version observations from untrusted banners only when
   a compact protocol-specific form makes that attribution unambiguous.
+- Add `-oA <prefix>` for a one-scan normal, XML, grepable, and JSON report
+  bundle, including valid multi-host XML under Noxmap's documented schema.
 
 ## Unreleased
 
