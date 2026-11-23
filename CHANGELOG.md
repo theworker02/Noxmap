@@ -14,6 +14,7 @@
 - Add `noxcat`, an original bounded TCP diagnostic companion client for authorized checks.
 - Add `noxping`, a bounded TCP reachability and timing companion utility.
 - Add a stable JSON report schema with native `--json` and compatibility `-oJ` output.
+- Add versioned `.noxbaseline` desired-state audits for open and closed TCP-port expectations.
 
 ## 0.1.0 — 2026-11-20
 
