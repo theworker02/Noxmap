@@ -30,6 +30,7 @@ struct CompatConfig {
     options: ScanOptions,
     policy: ScanPolicy,
     output: Option<(String, ReportFormat)>,
+    output_all_prefix: Option<String>,
     exclusions: Vec<String>,
     host_discovery: bool,
 }
@@ -322,6 +323,18 @@ fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
     tokens.extend(rest);
     let config = parse_compat_config(&tokens)?;
     let targets = compat_targets(&config)?;
+    if let Some(prefix) = &config.output_all_prefix {
+        if config.host_discovery {
+            return Err("-oA is not available for -sn yet; use -oN or -oG".into());
+        }
+        let snapshots = targets
+            .iter()
+            .map(|target| Scanner::new(config.policy).scan(target, &config.options))
+            .collect::<Result<Vec<_>, _>>()?;
+        write_all_reports(prefix, &snapshots)?;
+        println!("wrote Noxmap report bundle with prefix {prefix}");
+        return Ok(());
+    }
     let rendered = if config.host_discovery {
         render_discovery_reports(&config, &targets)?
     } else {
@@ -336,6 +349,9 @@ fn compat_scan(first: String, rest: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
+// The flags intentionally stay in one explicit parser so unsupported
+// compatibility options fail clearly instead of falling through to a scan.
+#[allow(clippy::too_many_lines)]
 fn parse_compat_config(tokens: &[String]) -> Result<CompatConfig, String> {
     let mut config = CompatConfig::default();
     config.options.identify_services = false;
@@ -362,31 +378,47 @@ fn parse_compat_config(tokens: &[String]) -> Result<CompatConfig, String> {
             }
             "-oN" => {
                 index += 1;
-                config.output = Some((
+                set_single_output(
+                    &mut config,
                     tokens.get(index).ok_or("-oN requires a file path")?.clone(),
                     ReportFormat::Normal,
-                ));
+                )?;
             }
             "-oX" => {
                 index += 1;
-                config.output = Some((
+                set_single_output(
+                    &mut config,
                     tokens.get(index).ok_or("-oX requires a file path")?.clone(),
                     ReportFormat::Xml,
-                ));
+                )?;
             }
             "-oG" => {
                 index += 1;
-                config.output = Some((
+                set_single_output(
+                    &mut config,
                     tokens.get(index).ok_or("-oG requires a file path")?.clone(),
                     ReportFormat::Grepable,
-                ));
+                )?;
             }
             "-oJ" => {
                 index += 1;
-                config.output = Some((
+                set_single_output(
+                    &mut config,
                     tokens.get(index).ok_or("-oJ requires a file path")?.clone(),
                     ReportFormat::Json,
-                ));
+                )?;
+            }
+            "-oA" => {
+                index += 1;
+                if config.output.is_some() || config.output_all_prefix.is_some() {
+                    return Err("choose exactly one of -oN, -oX, -oG, -oJ, or -oA".into());
+                }
+                config.output_all_prefix = Some(
+                    tokens
+                        .get(index)
+                        .ok_or("-oA requires a file prefix")?
+                        .clone(),
+                );
             }
             "-iL" => {
                 index += 1;
@@ -445,15 +477,42 @@ fn compat_targets(config: &CompatConfig) -> Result<Vec<String>, String> {
         expand_cidr(config.target.as_deref().ok_or("a target is required")?, 256)?
     };
     let targets = apply_exclusions(targets, &config.exclusions)?;
-    if config
-        .output
-        .as_ref()
-        .is_some_and(|(_, format)| *format == ReportFormat::Xml)
-        && targets.len() != 1
-    {
-        return Err("-oX currently accepts exactly one resolved target".into());
-    }
     Ok(targets)
+}
+
+fn set_single_output(
+    config: &mut CompatConfig,
+    path: String,
+    format: ReportFormat,
+) -> Result<(), String> {
+    if config.output.is_some() || config.output_all_prefix.is_some() {
+        return Err("choose exactly one of -oN, -oX, -oG, -oJ, or -oA".into());
+    }
+    config.output = Some((path, format));
+    Ok(())
+}
+
+fn write_all_reports(prefix: &str, snapshots: &[noxmap::ScanSnapshot]) -> Result<(), String> {
+    let normal = snapshots.iter().map(report::normal).collect::<String>();
+    let grepable = snapshots.iter().map(report::grepable).collect::<String>();
+    let json = format!(
+        "[{}]\n",
+        snapshots
+            .iter()
+            .map(report::json)
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    for (suffix, contents) in [
+        (".nmap", normal),
+        (".xml", report::xml_many(snapshots)),
+        (".grep", grepable),
+        (".json", json),
+    ] {
+        std::fs::write(format!("{prefix}{suffix}"), contents)
+            .map_err(|error| format!("could not write {suffix} report: {error}"))?;
+    }
+    Ok(())
 }
 
 fn render_compat_reports(config: &CompatConfig, targets: &[String]) -> Result<String, String> {
@@ -614,7 +673,7 @@ fn scan_or_watch(
 
 fn print_help() {
     println!(
-        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap diff <target> [--state-dir .noxmap]\n  noxmap audit <baseline.noxbaseline> [--allow-public]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG|-oJ <file>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
+        "Noxmap — local-first network inventory\n\nUSAGE:\n  noxmap scan <target|ipv4-cidr> [scan options]\n  noxmap scan -iL <inventory.txt> [scan options]\n  noxmap watch <target> [scan options] [--interval-secs 60]\n  noxmap diff <target> [--state-dir .noxmap]\n  noxmap audit <baseline.noxbaseline> [--allow-public]\n  noxmap fingerprint <target> [scan options]\n  noxmap topology <target>\n  noxmap script <file.nox> <target> [scan options]\n  noxmap api [loopback-port]\n  noxmap -sT <target> [-p <ports>] [-oN|-oX|-oG|-oJ <file> | -oA <prefix>]\n\nSCAN OPTIONS: --ports 22,80,443 --timeout-ms 800 --concurrency 32 --state-dir .noxmap --json --allow-public\nTARGET INPUT: IPv4 CIDR and -iL inventories are bounded to 256 targets. Use --exclude <host-or-cidr> or --excludefile <path> to remove authorized inventory entries."
     );
 }
 fn print_human(snapshot: &noxmap::ScanSnapshot) {
@@ -700,6 +759,29 @@ mod tests {
         assert_eq!(
             config.output.expect("output should be present").0,
             "discovery.grep"
+        );
+    }
+
+    #[test]
+    fn compatibility_all_output_is_exclusive() {
+        let config = parse_compat_config(&[
+            "-sT".into(),
+            "-oA".into(),
+            "report".into(),
+            "127.0.0.1".into(),
+        ])
+        .expect("bundle output should parse");
+        assert_eq!(config.output_all_prefix.as_deref(), Some("report"));
+        assert!(
+            parse_compat_config(&[
+                "-sT".into(),
+                "-oA".into(),
+                "report".into(),
+                "-oJ".into(),
+                "report.json".into(),
+                "127.0.0.1".into()
+            ])
+            .is_err()
         );
     }
 }
