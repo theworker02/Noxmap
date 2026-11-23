@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title description">
+  <title id="title">Noxmap architecture</title>
+  <description id="description">A local-first flow from user interfaces through policy and scanning to reports and local storage.</description>
+  <rect width="1200" height="420" rx="24" fill="#0e131c"/>
+  <text x="60" y="70" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="700">Noxmap local-first architecture</text>
+  <text x="60" y="104" fill="#9fb5d5" font-family="Segoe UI, Arial, sans-serif" font-size="17">Explicit policy gates every connection before collection and enrichment.</text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <g fill="#182536" stroke="#36536f" stroke-width="2"><rect x="60" y="175" width="180" height="116" rx="16"/><rect x="300" y="175" width="180" height="116" rx="16"/><rect x="540" y="175" width="180" height="116" rx="16"/><rect x="780" y="175" width="180" height="116" rx="16"/><rect x="1020" y="175" width="120" height="116" rx="16"/></g>
+    <g fill="#f8fafc" font-size="20" font-weight="700"><text x="92" y="220">CLI / Desktop</text><text x="344" y="220">ScanPolicy</text><text x="579" y="220">Scanner</text><text x="806" y="220">Enrichment</text><text x="1038" y="220">Local</text></g>
+    <g fill="#9fb5d5" font-size="15"><text x="90" y="252">API request</text><text x="328" y="252">scope + consent</text><text x="570" y="252">bounded TCP</text><text x="802" y="252">service evidence</text><text x="1036" y="252">reports</text><text x="1040" y="274">snapshots</text></g>
+    <g stroke="#4f9cff" stroke-width="4" fill="none" marker-end="url(#arrow)"><path d="M240 233h55"/><path d="M480 233h55"/><path d="M720 233h55"/><path d="M960 233h55"/></g>
+  </g>
+  <text x="60" y="365" fill="#b8c7dc" font-family="Segoe UI, Arial, sans-serif" font-size="16">Raw-packet engines, evasion, spoofing, and exploit execution are intentionally outside the current architecture.</text>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0 9 3 0 6" fill="none" stroke="#4f9cff" stroke-width="2"/></marker></defs>
+</svg>
+
