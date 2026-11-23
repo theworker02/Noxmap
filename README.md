@@ -1,10 +1,22 @@
-# Noxmap
+<p align="center">
+  <img src="assets/noxmap-wordmark.svg" alt="Noxmap — authorized network inventory" width="620">
+</p>
 
-![Noxmap mark](assets/noxmap-mark.svg)
+<p align="center">
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.85%2B-0e131c?logo=rust&logoColor=white" alt="Rust 1.85 or later"></a>
+  <img src="https://img.shields.io/badge/engine-bounded%20TCP%20connect-2563eb" alt="Bounded TCP connect engine">
+  <img src="https://img.shields.io/badge/posture-local--first-8b5cf6" alt="Local-first posture">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-24a148" alt="MIT License"></a>
+</p>
 
 Noxmap is an original, Rust-native network inventory and observability tool for authorized administrators and security researchers. It is a clean-room implementation maintained in a fork relationship for historical context; it does not include Nmap source, branding, scripts, databases, binaries, or compatibility claims.
 
 The first release establishes a portable, consent-first scanning core: bounded TCP connect scans, lightweight service identification, machine-readable results, and an extensible domain model for monitoring, topology, scripting, OS identification, and a local API.
+
+![Noxmap architecture](docs/diagrams/architecture.svg)
+
+The architecture diagram is a repository-maintained SVG: it describes current
+boundaries, not a claim that every extension provider has been implemented.
 
 ## Desktop application
 
@@ -19,6 +31,8 @@ cargo run --features desktop --bin noxmap-desktop
 ```
 
 The GUI calls the same scanner and consent policy as the CLI; it is not a fake dashboard or a separate scanning implementation.
+
+![Noxmap scan lifecycle](docs/diagrams/scan-lifecycle.svg)
 
 ## Noxcat companion client
 
@@ -45,6 +59,8 @@ This is an early foundation, not a drop-in replacement for Nmap. It intentionall
 ## Project documentation
 
 - [Architecture](ARCHITECTURE.md)
+- [Brand assets](docs/BRANDING.md)
+- [Visual capture policy](docs/SCREENSHOTS.md)
 - [Upstream structure and compatibility inventory](UPSTREAM_COMPATIBILITY.md)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
@@ -239,3 +255,4 @@ action=service:http
 3. Add passive OS evidence collection with provenance and confidence scoring.
 4. Add signed, capability-scoped WASM scripts after a sandbox is in place.
 5. Add a desktop client and continuous monitoring schedules with notification adapters.
+
