@@ -29,15 +29,30 @@ pub fn normal(snapshot: &ScanSnapshot) -> String {
 
 #[must_use]
 pub fn xml(snapshot: &ScanSnapshot) -> String {
+    xml_many(std::slice::from_ref(snapshot))
+}
+
+#[must_use]
+pub fn xml_many(snapshots: &[ScanSnapshot]) -> String {
+    let hosts = snapshots
+        .iter()
+        .map(xml_host)
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<noxmaprun schema=\"1\">\n{hosts}\n</noxmaprun>\n"
+    )
+}
+
+fn xml_host(snapshot: &ScanSnapshot) -> String {
     let address = snapshot
         .resolved_address
         .map_or_else(String::new, |item| item.ip().to_string());
-    let ports = snapshot.ports.iter().map(|port| format!("    <port protocol=\"tcp\" number=\"{}\"><state value=\"{}\"/><service name=\"{}\" product=\"{}\" version=\"{}\" evidence=\"{}\"/></port>", port.port, state_name(&port.state), port.service.as_ref().map_or("unknown", |service| service.name.as_str()), port.service.as_ref().and_then(|service| service.product.as_deref()).map_or_else(String::new, escape), port.service.as_ref().and_then(|service| service.version.as_deref()).map_or_else(String::new, escape), port.service.as_ref().map_or_else(String::new, |service| escape(&service.evidence)))).collect::<Vec<_>>().join("\n");
+    let ports = snapshot.ports.iter().map(|port| format!("      <port protocol=\"tcp\" number=\"{}\"><state value=\"{}\"/><service name=\"{}\" product=\"{}\" version=\"{}\" evidence=\"{}\"/></port>", port.port, state_name(&port.state), port.service.as_ref().map_or("unknown", |service| service.name.as_str()), port.service.as_ref().and_then(|service| service.product.as_deref()).map_or_else(String::new, escape), port.service.as_ref().and_then(|service| service.version.as_deref()).map_or_else(String::new, escape), port.service.as_ref().map_or_else(String::new, |service| escape(&service.evidence)))).collect::<Vec<_>>().join("\n");
     format!(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<noxmaprun schema=\"1\">\n  <host target=\"{}\" address=\"{}\">\n  <ports>\n{}\n  </ports>\n  </host>\n</noxmaprun>\n",
+        "  <host target=\"{}\" address=\"{}\">\n    <ports>\n{ports}\n    </ports>\n  </host>",
         escape(&snapshot.target),
-        escape(&address),
-        ports
+        escape(&address)
     )
 }
 
@@ -203,4 +218,18 @@ mod tests {
             "{\"schema\":1,\"target\":\"host\\\"name\",\"address\":null,\"scanned_at_unix_ms\":12,\"ports\":[{\"port\":80,\"protocol\":\"tcp\",\"state\":\"open\",\"latency_ms\":3,\"service\":{\"name\":\"http\",\"evidence\":\"HTTP/1.1\\r\\n\",\"product\":null,\"version\":null}}]}"
         );
     }
+
+    #[test]
+    fn xml_many_uses_one_root_for_multiple_hosts() {
+        let snapshot = ScanSnapshot {
+            target: "loopback".into(),
+            resolved_address: None,
+            scanned_at_unix_ms: 0,
+            ports: vec![],
+        };
+        let document = xml_many(&[snapshot.clone(), snapshot]);
+        assert_eq!(document.matches("<noxmaprun").count(), 1);
+        assert_eq!(document.matches("<host ").count(), 2);
+    }
 }
+
