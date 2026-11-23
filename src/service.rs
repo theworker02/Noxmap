@@ -10,6 +10,8 @@ use std::time::Duration;
 pub struct ServiceIdentity {
     pub name: String,
     pub evidence: String,
+    pub product: Option<String>,
+    pub version: Option<String>,
 }
 
 /// Identifies a small set of common TCP services after a successful connect.
@@ -119,10 +121,55 @@ fn classify_evidence(port: u16, evidence: &str) -> Option<ServiceIdentity> {
     } else {
         return None;
     };
+    let (product, version) = product_version(name, evidence);
     Some(ServiceIdentity {
         name: name.into(),
         evidence: evidence.into(),
+        product,
+        version,
     })
+}
+
+fn product_version(service: &str, evidence: &str) -> (Option<String>, Option<String>) {
+    let token = if service == "ssh" {
+        evidence
+            .split_whitespace()
+            .next()
+            .and_then(|value| value.splitn(3, '-').nth(2))
+    } else if service == "http" {
+        evidence
+            .split("Server: ")
+            .nth(1)
+            .and_then(|value| value.split_whitespace().next())
+    } else if matches!(service, "ftp" | "smtp") {
+        evidence.split_whitespace().nth(1)
+    } else {
+        None
+    };
+    let Some(token) = token else {
+        return (None, None);
+    };
+    let (product, version) = if service == "ssh" {
+        token.split_once('_').unwrap_or((token, ""))
+    } else {
+        token.split_once('/').unwrap_or((token, ""))
+    };
+    let product = product.trim_matches(|character: char| {
+        !character.is_ascii_alphanumeric() && character != '-' && character != '_'
+    });
+    if product.is_empty() || product.chars().all(|character| character.is_ascii_digit()) {
+        return (None, None);
+    }
+    let version = version.trim_matches(|character: char| {
+        !character.is_ascii_alphanumeric()
+            && character != '.'
+            && character != '-'
+            && character != '_'
+    });
+    (
+        Some(product.into()),
+        (!version.is_empty()).then(|| version.into()),
+    )
 }
 
 #[must_use]
@@ -146,6 +193,8 @@ pub fn port_hint(port: u16) -> Option<ServiceIdentity> {
     Some(ServiceIdentity {
         name: name.into(),
         evidence: format!("well-known TCP port {port}"),
+        product: None,
+        version: None,
     })
 }
 
@@ -160,27 +209,35 @@ mod tests {
             Some(ServiceIdentity {
                 name: "ssh".into(),
                 evidence: "SSH-2.0-OpenSSH_9.6".into(),
+                product: Some("OpenSSH".into()),
+                version: Some("9.6".into()),
             })
         );
         assert_eq!(
             classify_evidence(21, "220 ProFTPD ready"),
             Some(ServiceIdentity {
                 name: "ftp".into(),
-                evidence: "220 ProFTPD ready".into()
+                evidence: "220 ProFTPD ready".into(),
+                product: Some("ProFTPD".into()),
+                version: None
             })
         );
         assert_eq!(
             classify_evidence(25, "220 mail.example ESMTP"),
             Some(ServiceIdentity {
                 name: "smtp".into(),
-                evidence: "220 mail.example ESMTP".into()
+                evidence: "220 mail.example ESMTP".into(),
+                product: Some("mail.example".into()),
+                version: None
             })
         );
         assert_eq!(
             classify_evidence(5900, "RFB 003.008"),
             Some(ServiceIdentity {
                 name: "vnc".into(),
-                evidence: "RFB 003.008".into()
+                evidence: "RFB 003.008".into(),
+                product: None,
+                version: None
             })
         );
     }
@@ -198,5 +255,13 @@ mod tests {
         assert_eq!(port_hint(443).unwrap().name, "https");
         assert!(classify_evidence(443, "").is_none());
     }
-}
 
+    #[test]
+    fn extracts_product_and_version_without_guessing() {
+        assert_eq!(
+            product_version("http", "HTTP/1.1 200 OK Server: nginx/1.27.4"),
+            (Some("nginx".into()), Some("1.27.4".into()))
+        );
+        assert_eq!(product_version("redis", "+PONG"), (None, None));
+    }
+}
