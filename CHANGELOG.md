@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Expand Noxmap's original safe service-identification layer with banner-first
+  FTP, SMTP, POP3, IMAP, VNC, and AMQP recognition plus bounded capability
+  queries where a protocol requires an initial request.
+- Preserve printable, length-bounded service evidence in normal, XML, and JSON
+  reports, with XML attribute escaping for evidence.
+
+## Unreleased
+
 - Wire bounded IPv4 CIDR and Nmap-style `-iL` inventory input into `scan` and compatibility TCP-connect scans.
 - Document the 256-target ceiling and keep continuous monitoring scoped to one target per process.
 - Add exact-host and IPv4-CIDR exclusions through `--exclude` and `--excludefile`.
@@ -31,4 +39,3 @@
 Noxmap releases represent independently built Rust artifacts only. Upstream
 Nmap releases, binaries, scripts, service data, and licensing remain upstream
 material and are not republished as Noxmap artifacts.
-
