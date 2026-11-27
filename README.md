@@ -22,7 +22,7 @@ boundaries, not a claim that every extension provider has been implemented.
 
 ![Noxmap desktop design direction](docs/screenshots/noxmap-desktop-concept.png)
 
-The image above is an original **design-direction concept**, not a claim that every panel is already shipped. The repository now includes a real native Rust desktop binary with an operational Scan workspace: target input, port selection, fast-profile selection, service-identification selection, explicit public-target acknowledgement, a real scan action, scan-state feedback, live result metrics, and a port-results table. Inventory, saved profiles, settings, and the richer multi-target panels shown in the concept remain future work.
+The image above is an original **design-direction concept**, not a claim that every panel is already shipped. The repository now includes a real native Rust desktop binary with an operational Scan workspace: target input, port selection, fast-profile selection, service-identification selection, explicit public-target acknowledgement, a real scan action, scan-state feedback, live result metrics, a port-results table, and local snapshot history. Every completed desktop scan is saved in the same `.noxmap/snapshots.noxlog` store used by the CLI; the workspace can load and display the four most recent snapshots for its current target. Inventory, saved profiles, settings, and the richer multi-target panels shown in the concept remain future work.
 
 Build and run the desktop application with:
 
