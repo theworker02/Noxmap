@@ -13,6 +13,8 @@
   a compact protocol-specific form makes that attribution unambiguous.
 - Add `-oA <prefix>` for a one-scan normal, XML, grepable, and JSON report
   bundle, including valid multi-host XML under Noxmap's documented schema.
+- Persist completed desktop scans through the existing local snapshot store and
+  expose a current-target history view in the Scan workspace.
 
 ## Unreleased
 
