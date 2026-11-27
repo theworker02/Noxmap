@@ -4,6 +4,7 @@ use eframe::egui::{self, Color32, RichText, Stroke};
 use noxmap::scanner::{PortResult, PortState, parse_ports, top_tcp_ports};
 use noxmap::storage::SnapshotStore;
 use noxmap::{ScanOptions, ScanPolicy, Scanner};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() -> eframe::Result<()> {
     eframe::run_native(
@@ -317,7 +318,7 @@ fn draw_history(ui: &mut egui::Ui, app: &NoxmapDesktop) {
                 ui.strong("PORTS");
                 ui.end_row();
                 for snapshot in app.history.iter().rev().take(4) {
-                    ui.label(snapshot.scanned_at_unix_ms.to_string());
+                    ui.label(snapshot_age(snapshot.scanned_at_unix_ms));
                     ui.label(&snapshot.target);
                     ui.label(count_state(snapshot, &PortState::Open).to_string());
                     ui.label(snapshot.ports.len().to_string());
@@ -325,6 +326,19 @@ fn draw_history(ui: &mut egui::Ui, app: &NoxmapDesktop) {
                 }
             });
     });
+}
+
+fn snapshot_age(scanned_at_unix_ms: u128) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(scanned_at_unix_ms, |duration| duration.as_millis());
+    let elapsed_seconds = now.saturating_sub(scanned_at_unix_ms) / 1_000;
+    match elapsed_seconds {
+        0..=59 => "just now".into(),
+        60..=3_599 => format!("{}m ago", elapsed_seconds / 60),
+        3_600..=86_399 => format!("{}h ago", elapsed_seconds / 3_600),
+        _ => format!("{}d ago", elapsed_seconds / 86_400),
+    }
 }
 
 fn draw_results(ui: &mut egui::Ui, app: &NoxmapDesktop) {
@@ -495,5 +509,15 @@ fn count_state(snapshot: &noxmap::ScanSnapshot, state: &PortState) -> usize {
         .iter()
         .filter(|port| &port.state == state)
         .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::snapshot_age;
+
+    #[test]
+    fn formats_snapshot_age_with_compact_units() {
+        assert_eq!(snapshot_age(u128::MAX), "just now");
+    }
 }
 
