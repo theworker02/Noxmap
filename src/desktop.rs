@@ -2,6 +2,7 @@
 
 use eframe::egui::{self, Color32, RichText, Stroke};
 use noxmap::scanner::{PortResult, PortState, parse_ports, top_tcp_ports};
+use noxmap::storage::SnapshotStore;
 use noxmap::{ScanOptions, ScanPolicy, Scanner};
 
 fn main() -> eframe::Result<()> {
@@ -40,6 +41,7 @@ struct NoxmapDesktop {
     allow_public: bool,
     identify_services: bool,
     result: Option<noxmap::ScanSnapshot>,
+    history: Vec<noxmap::ScanSnapshot>,
     message: Option<String>,
 }
 
@@ -52,6 +54,7 @@ impl Default for NoxmapDesktop {
             allow_public: false,
             identify_services: true,
             result: None,
+            history: Vec::new(),
             message: None,
         }
     }
@@ -82,13 +85,43 @@ impl NoxmapDesktop {
         };
         match Scanner::new(policy).scan(self.target.trim(), &options) {
             Ok(snapshot) => {
-                self.message = Some(format!(
-                    "Completed {} TCP connection attempts.",
-                    snapshot.ports.len()
-                ));
+                let attempts = snapshot.ports.len();
+                let target = snapshot.target.clone();
+                match SnapshotStore::open(".noxmap").and_then(|store| {
+                    store.append(&snapshot)?;
+                    store.history(&target)
+                }) {
+                    Ok(history) => {
+                        self.history = history;
+                        self.message = Some(format!(
+                            "Completed {attempts} TCP connection attempts and saved this local snapshot."
+                        ));
+                    }
+                    Err(error) => {
+                        self.message = Some(format!(
+                            "Completed {attempts} TCP connection attempts, but could not save local history: {error}"
+                        ));
+                    }
+                }
                 self.result = Some(snapshot);
             }
             Err(error) => self.message = Some(error),
+        }
+    }
+
+    fn load_history(&mut self) {
+        let target = self.target.trim();
+        if target.is_empty() {
+            self.message = Some("Enter a target before loading local history.".into());
+            return;
+        }
+        match SnapshotStore::open(".noxmap").and_then(|store| store.history(target)) {
+            Ok(history) => {
+                let count = history.len();
+                self.history = history;
+                self.message = Some(format!("Loaded {count} local snapshots for {target}."));
+            }
+            Err(error) => self.message = Some(format!("Could not load local history: {error}")),
         }
     }
 }
@@ -129,6 +162,8 @@ impl eframe::App for NoxmapDesktop {
             draw_scan_configuration(ui, self);
             ui.add_space(14.0);
             draw_results(ui, self);
+            ui.add_space(14.0);
+            draw_history(ui, self);
         });
     }
 }
@@ -195,6 +230,9 @@ fn draw_scan_configuration(ui: &mut egui::Ui, app: &mut NoxmapDesktop) {
                 {
                     app.scan();
                 }
+                if ui.button("Load history").clicked() {
+                    app.load_history();
+                }
             });
         });
         ui.label(
@@ -247,6 +285,45 @@ fn draw_scan_configuration(ui: &mut egui::Ui, app: &mut NoxmapDesktop) {
             ui.checkbox(&mut app.identify_services, "Identify services");
             ui.checkbox(&mut app.allow_public, "Authorized public target");
         });
+    });
+}
+
+fn draw_history(ui: &mut egui::Ui, app: &NoxmapDesktop) {
+    panel_frame().show(ui, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Recent local snapshots").size(18.0).strong());
+            ui.label(
+                RichText::new("Stored only in .noxmap on this machine")
+                    .small()
+                    .color(Color32::GRAY),
+            );
+        });
+        if app.history.is_empty() {
+            ui.label(
+                RichText::new("No snapshots loaded for the current target.")
+                    .small()
+                    .color(Color32::GRAY),
+            );
+            return;
+        }
+        egui::Grid::new("snapshot-history")
+            .striped(true)
+            .min_col_width(120.0)
+            .spacing([18.0, 7.0])
+            .show(ui, |ui| {
+                ui.strong("CAPTURED");
+                ui.strong("TARGET");
+                ui.strong("OPEN");
+                ui.strong("PORTS");
+                ui.end_row();
+                for snapshot in app.history.iter().rev().take(4) {
+                    ui.label(snapshot.scanned_at_unix_ms.to_string());
+                    ui.label(&snapshot.target);
+                    ui.label(count_state(snapshot, &PortState::Open).to_string());
+                    ui.label(snapshot.ports.len().to_string());
+                    ui.end_row();
+                }
+            });
     });
 }
 
