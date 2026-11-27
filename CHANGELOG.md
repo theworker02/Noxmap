@@ -15,6 +15,8 @@
   bundle, including valid multi-host XML under Noxmap's documented schema.
 - Persist completed desktop scans through the existing local snapshot store and
   expose a current-target history view in the Scan workspace.
+- Add durable snapshot-store round-trip coverage and human-friendly relative
+  capture times in the desktop history table.
 
 ## Unreleased
 
