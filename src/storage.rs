@@ -154,3 +154,70 @@ fn state_code(state: &PortState) -> &'static str {
         PortState::Unresolved => "u",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn snapshot(target: &str, timestamp: u128) -> ScanSnapshot {
+        ScanSnapshot {
+            target: target.into(),
+            resolved_address: None,
+            scanned_at_unix_ms: timestamp,
+            ports: vec![PortResult {
+                port: 443,
+                state: PortState::Open,
+                latency_ms: Some(5),
+                service: Some(ServiceIdentity {
+                    name: "https".into(),
+                    evidence: "test fixture".into(),
+                    product: None,
+                    version: None,
+                }),
+            }],
+        }
+    }
+
+    #[test]
+    fn appends_and_filters_a_durable_target_history() {
+        let directory = std::env::temp_dir().join(format!(
+            "noxmap-storage-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock should be after Unix epoch")
+                .as_nanos()
+        ));
+        let store = SnapshotStore::open(&directory).expect("test store should open");
+        store
+            .append(&snapshot("loopback", 1))
+            .expect("first snapshot should save");
+        store
+            .append(&snapshot("other", 2))
+            .expect("other target should save");
+        store
+            .append(&snapshot("loopback", 3))
+            .expect("latest snapshot should save");
+
+        let history = store.history("loopback").expect("history should load");
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].scanned_at_unix_ms, 1);
+        assert_eq!(
+            history[1].ports[0]
+                .service
+                .as_ref()
+                .map(|item| item.name.as_str()),
+            Some("https")
+        );
+        assert_eq!(
+            store
+                .latest("loopback")
+                .expect("latest should load")
+                .expect("latest snapshot should exist")
+                .scanned_at_unix_ms,
+            3
+        );
+        std::fs::remove_dir_all(&directory).expect("test directory should clean up");
+    }
+}
+
